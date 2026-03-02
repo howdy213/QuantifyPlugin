@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QuantifyDialog</class>
+ <widget class="QWidget" name="QuantifyDialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>727</width>
+    <height>391</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>考勤</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="0" column="0">
+    <widget class="SideBar" name="sideBar" native="true"/>
+   </item>
+   <item row="0" column="1">
+    <widget class="QStackedWidget" name="stackedWidget"/>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SideBar</class>
+   <extends>QWidget</extends>
+   <header>sidebar.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>QWidget</class>
+   <extends>QWidget</extends>
+   <header location="global">widget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

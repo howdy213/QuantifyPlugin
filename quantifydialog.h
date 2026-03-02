@@ -1,0 +1,51 @@
+/**
+ * @file classrecord.h
+ * @brief 班级记录类
+ * @author howdy213
+ * @date 2026-3-1
+ * @version 1.3.0
+ *
+ * Copyright (C) 2025-2026 howdy213
+ *
+ * This file is part of QuantifyPlugin.
+ *
+ * QuantifyPlugin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * QuantifyPlugin is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+#ifndef QUANTIFYDIALOG_H
+#define QUANTIFYDIALOG_H
+#include <QWidget>
+#include <QScopedPointer>
+
+QT_BEGIN_NAMESPACE
+namespace Ui { class QuantifyDialog; }
+QT_END_NAMESPACE
+
+class QuantifyPlugin;
+class QuantifyDialogPrivate;
+
+class QuantifyDialog : public QWidget {
+    Q_OBJECT
+    Q_DECLARE_PRIVATE(QuantifyDialog)
+public:
+    explicit QuantifyDialog(QWidget *parent = nullptr);
+    ~QuantifyDialog();
+    bool readConfig();
+    void setPlugin(QuantifyPlugin *plugin);
+protected:
+    void closeEvent(QCloseEvent *event) override;
+private:
+    QScopedPointer<QuantifyDialogPrivate> d_ptr;
+};
+
+#endif // QUANTIFYDIALOG_H
