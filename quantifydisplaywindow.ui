@@ -21,10 +21,20 @@
      </property>
     </widget>
    </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="btnExport">
+     <property name="text">
+      <string>导出</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="5">
+    <widget class="QTableWidget" name="quantifyTable"/>
+   </item>
    <item row="1" column="2">
     <spacer name="horizontalSpacer">
      <property name="orientation">
-      <enum>Qt::Horizontal</enum>
+      <enum>Qt::Orientation::Horizontal</enum>
      </property>
      <property name="sizeHint" stdset="0">
       <size>
@@ -34,13 +44,24 @@
      </property>
     </spacer>
    </item>
-   <item row="0" column="0" colspan="3">
-    <widget class="QTableWidget" name="quantifyTable"/>
+   <item row="1" column="4">
+    <widget class="QComboBox" name="comboType">
+     <item>
+      <property name="text">
+       <string>个人</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>小组</string>
+      </property>
+     </item>
+    </widget>
    </item>
-   <item row="1" column="0">
-    <widget class="QPushButton" name="btnExport">
+   <item row="1" column="3">
+    <widget class="QCheckBox" name="checkAverage">
      <property name="text">
-      <string>导出</string>
+      <string>平均</string>
      </property>
     </widget>
    </item>

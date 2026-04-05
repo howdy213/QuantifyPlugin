@@ -2,8 +2,8 @@
  * @file classrecord.h
  * @brief 班级记录类
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -69,12 +69,13 @@ QuantifyDialog::QuantifyDialog(QWidget *parent)
 
     QString path = qvariant_cast<QString>(d->doc->get("path"));
     d->displayWnd = new QuantifyDisplayWindow(d->doc, this);
-    d->editWnd = new QuantifyEditWindow(this);
+    d->editWnd = new QuantifyEditWindow(d->displayWnd,this);
     d->settingWnd = new QuantifySettingWindow(this);
     d->helpWnd = new QuantifyHelpDialog(d->doc, this);
 
     d->settingWnd->setDoc(d->doc);
     d->editWnd->doc = d->doc;
+    d->displayWnd->editWnd = d->editWnd;
 
     d->ui->stackedWidget->addWidget(d->displayWnd);
     d->ui->stackedWidget->addWidget(d->editWnd);
@@ -90,7 +91,6 @@ QuantifyDialog::QuantifyDialog(QWidget *parent)
 
     d->ui->stackedWidget->setCurrentIndex(0);
 
-    d->displayWnd->editWnd = d->editWnd;
 
     setMaximumSize(1300, 650);
     setMinimumSize(1000, 500);
@@ -116,7 +116,7 @@ bool QuantifyDialog::readConfig() {
         WPath(PData).getModuleFolder(PPlugin->getId()) + "Quantify/config.json";
     if (!d->doc->load(configPath, true)) {
         QMessageBox::information(this, "首次使用",
-                                 "前往 帮助>示例 创建初始数据后开始使用");
+                                 "前往 设置>更改配置-修改 创建初始数据后开始使用");
         return false;
     };
 

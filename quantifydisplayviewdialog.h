@@ -50,6 +50,7 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QCloseEvent>
+#include <QRegularExpression>
 
 #include "studentrecordviewer.h"
 
@@ -59,7 +60,11 @@ QT_END_NAMESPACE
 
 class QuantifyDisplayWindow;
 class QuantifyDisplayViewDialogPrivate;
-
+enum DisplayMode {
+    Expand,      // 展开
+    Summarize,   // 归纳（按规则类型）
+    Collapse     // 折叠（按日期、成员）
+};
 class QuantifyDisplayViewDialog : public QDialog
 {
     Q_OBJECT
@@ -70,10 +75,14 @@ public:
     void setContent(const QVector<RecordInfo>& info);
     void setName(const QString& name);
     void setDialog(QuantifyDisplayWindow* dlg);
+    void updateDisplay();
+    void setGroupMode(bool isGroup);
     QString getName() const;
 private slots:
     void on_btnExport_clicked();
     void on_btnFilter_clicked();
+    void on_comboDisplayMode_currentIndexChanged(int index);
+
 protected:
     void closeEvent(QCloseEvent *event) override;
 private:

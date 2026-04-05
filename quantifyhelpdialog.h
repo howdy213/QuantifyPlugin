@@ -1,3 +1,27 @@
+/**
+ * @file quantifyhelptwindow.h
+ * @brief 帮助对话框
+ * @author howdy213
+ * @date 2026-4-5
+ * @version 1.4.0
+ *
+ * Copyright (C) 2025-2026 howdy213
+ *
+ * This file is part of QuantifyPlugin.
+ *
+ * QuantifyPlugin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * QuantifyPlugin is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #ifndef QUANTIFYHELPDIALOG_H
 #define QUANTIFYHELPDIALOG_H
 
@@ -18,11 +42,6 @@ public:
     explicit QuantifyHelpDialog(WConfigDocument *doc, QWidget *parent = nullptr);
     ~QuantifyHelpDialog();
 
-private slots:
-    void on_btnExample_clicked();
-
-    void on_btnOpenDir_clicked();
-
 private:
     // 初始化各个标签页
     void setupIntroTab();
@@ -32,14 +51,8 @@ private:
     void setupGroupTab();
     void setupConfigTab();
     void setupNamelistTab();
-
-    // 辅助函数（用于创建示例文件）
-    bool createTemplateFile(const QString &filePath, const QString &content);
-    bool createNamelistExcel(const QString &filePath);
-    bool createConfigFile(const QString &configPath,
-                          const QDir &baseDir,
-                          const QString &termDirName,
-                          const QString &engineType);
+    void setupSecurityTab();
+    void setupAboutTab();
 
     Ui::QuantifyHelpDialog *ui;
     WConfigDocument *m_doc;

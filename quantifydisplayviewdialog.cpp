@@ -34,6 +34,10 @@ public:
     QVector<RecordInfo> m_info;
     QString m_name;
     QuantifyDisplayWindow *m_dlg = nullptr;
+    QVector<RecordInfo> m_originalInfo;  // 保存原始所有记录
+    QString m_filterText;                 // 当前过滤文本
+    DisplayMode m_displayMode = Expand;   // 当前显示模式
+    bool m_isGroupMode = false;
 };
 ///
 /// \brief QuantifyDisplayViewDialog::QuantifyDisplayViewDialog
@@ -101,7 +105,12 @@ void QuantifyDisplayViewDialog::createRow(int row, const RecordInfo &info) {
         return item;
     };
 
-    d->ui->tableWidget->setItem(row, 0, createItem(info.date));
+    QString firstColText = info.date;
+    if (!info.memberName.isEmpty()) {
+        firstColText = info.date + " " + info.memberName;
+    }
+
+    d->ui->tableWidget->setItem(row, 0, createItem(firstColText));
     d->ui->tableWidget->setItem(row, 1, createItem(QString::number(info.delta)));
     d->ui->tableWidget->setItem(row, 2, createItem(info.reason));
     d->ui->tableWidget->setItem(row, 3, createItem(info.note));
@@ -132,26 +141,188 @@ void QuantifyDisplayViewDialog::setDialog(QuantifyDisplayWindow *dlg) {
     d->m_dlg = dlg;
 }
 ///
+/// \brief QuantifyDisplayViewDialog::updateDisplay
+///
+void QuantifyDisplayViewDialog::updateDisplay()
+{
+    Q_D(QuantifyDisplayViewDialog);
+
+    // 1. 获取过滤文本
+    d->m_filterText = d->ui->editFilter->text();
+
+    // 2. 过滤原始数据
+    QVector<RecordInfo> filtered = d->m_originalInfo;
+    if (!d->m_filterText.isEmpty()) {
+        QStringList keywords = d->m_filterText.split('|', Qt::SkipEmptyParts);
+        filtered.clear();
+        for (const RecordInfo &info : d->m_originalInfo) {
+            bool match = false;
+            for (const QString &kw : keywords) {
+                if (info.note.contains(kw, Qt::CaseInsensitive) ||
+                    info.reason.contains(kw, Qt::CaseInsensitive)) {
+                    match = true;
+                    break;
+                }
+            }
+            if (match) filtered.append(info);
+        }
+    }
+
+    // 3. 清空表格
+    d->ui->tableWidget->clearContents();
+    d->ui->tableWidget->setRowCount(0);
+
+    // 4. 根据显示模式填充数据
+    if (d->m_displayMode == Expand) {
+        // 展开模式：每条记录一行
+        d->ui->tableWidget->setRowCount(filtered.size());
+        for (int i = 0; i < filtered.size(); ++i)
+            createRow(i, filtered[i]);
+    }
+    else if (d->m_displayMode == Summarize) {
+        // 归纳模式：按 reason 分组
+        QMap<QString, QVector<RecordInfo>> groups;
+        for (const RecordInfo &info : filtered)
+            groups[info.reason].append(info);
+        d->ui->tableWidget->setRowCount(groups.size());
+        int row = 0;
+        for (auto it = groups.begin(); it != groups.end(); ++it, ++row) {
+            double total = 0;
+            for (const RecordInfo &info : it.value()) total += info.delta;
+            // 创建分组行：日期列留空或显示“合计”，分数列显示总分，原因列显示规则名，备注列显示记录条数
+            QTableWidgetItem *dateItem = new QTableWidgetItem("合计");
+            dateItem->setTextAlignment(Qt::AlignCenter);
+            d->ui->tableWidget->setItem(row, 0, dateItem);
+
+            QTableWidgetItem *scoreItem = new QTableWidgetItem(QString::number(total));
+            scoreItem->setTextAlignment(Qt::AlignCenter);
+            d->ui->tableWidget->setItem(row, 1, scoreItem);
+
+            QTableWidgetItem *reasonItem = new QTableWidgetItem(it.key());
+            reasonItem->setTextAlignment(Qt::AlignCenter);
+            d->ui->tableWidget->setItem(row, 2, reasonItem);
+
+            QTableWidgetItem *noteItem = new QTableWidgetItem(QString("共 %1 条").arg(it.value().size()));
+            noteItem->setTextAlignment(Qt::AlignCenter);
+            d->ui->tableWidget->setItem(row, 3, noteItem);
+        }
+    }
+    else if (d->m_displayMode == Collapse) {
+        // 折叠模式：根据小组模式决定分组依据
+        if (d->m_isGroupMode) {
+            // 小组模式：按 memberName 分组
+            QMap<QString, QVector<RecordInfo>> groups;
+            for (const RecordInfo &info : filtered)
+                groups[info.memberName].append(info);
+            d->ui->tableWidget->setRowCount(groups.size());
+            int row = 0;
+            for (auto it = groups.begin(); it != groups.end(); ++it, ++row) {
+                double total = 0;
+                for (const RecordInfo &info : it.value()) total += info.delta;
+                QTableWidgetItem *memberItem = new QTableWidgetItem(it.key());
+                memberItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 0, memberItem);
+
+                QTableWidgetItem *scoreItem = new QTableWidgetItem(QString::number(total));
+                scoreItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 1, scoreItem);
+
+                QTableWidgetItem *reasonItem = new QTableWidgetItem("成员合计");
+                reasonItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 2, reasonItem);
+
+                QTableWidgetItem *noteItem = new QTableWidgetItem(QString("共 %1 条").arg(it.value().size()));
+                noteItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 3, noteItem);
+            }
+        } else {
+            // 个人模式：按 date 分组
+            QMap<QString, QVector<RecordInfo>> groups;
+            for (const RecordInfo &info : filtered)
+                groups[info.date].append(info);
+            d->ui->tableWidget->setRowCount(groups.size());
+            int row = 0;
+            for (auto it = groups.begin(); it != groups.end(); ++it, ++row) {
+                double total = 0;
+                for (const RecordInfo &info : it.value()) total += info.delta;
+                QTableWidgetItem *dateItem = new QTableWidgetItem(it.key());
+                dateItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 0, dateItem);
+
+                QTableWidgetItem *scoreItem = new QTableWidgetItem(QString::number(total));
+                scoreItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 1, scoreItem);
+
+                QTableWidgetItem *reasonItem = new QTableWidgetItem("本日合计");
+                reasonItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 2, reasonItem);
+
+                QTableWidgetItem *noteItem = new QTableWidgetItem(QString("共 %1 条").arg(it.value().size()));
+                noteItem->setTextAlignment(Qt::AlignCenter);
+                d->ui->tableWidget->setItem(row, 3, noteItem);
+            }
+        }
+    }
+
+    // 5. 添加总计行
+    int lastRow = d->ui->tableWidget->rowCount();
+    d->ui->tableWidget->setRowCount(lastRow + 1);
+
+    double totalDelta = 0;
+    QString lastDateOrMember;
+    for (const RecordInfo &info : filtered) {
+        totalDelta += info.delta;
+        lastDateOrMember = d->m_isGroupMode ? info.memberName : info.date;
+    }
+
+    QTableWidgetItem *totalFirstItem = new QTableWidgetItem("   ");
+    totalFirstItem->setTextAlignment(Qt::AlignCenter);
+    d->ui->tableWidget->setItem(lastRow, 0, totalFirstItem);
+
+    QTableWidgetItem *totalScoreItem = new QTableWidgetItem(QString::number(totalDelta));
+    totalScoreItem->setTextAlignment(Qt::AlignCenter);
+    d->ui->tableWidget->setItem(lastRow, 1, totalScoreItem);
+
+    QTableWidgetItem *totalReasonItem = new QTableWidgetItem("总计");
+    totalReasonItem->setTextAlignment(Qt::AlignCenter);
+    d->ui->tableWidget->setItem(lastRow, 2, totalReasonItem);
+
+    QTableWidgetItem *totalNoteItem = new QTableWidgetItem("");
+    totalNoteItem->setTextAlignment(Qt::AlignCenter);
+    d->ui->tableWidget->setItem(lastRow, 3, totalNoteItem);
+
+    // 6. 调整列标题和列宽
+    // 根据模式动态修改第一列标题
+    if (d->m_isGroupMode && d->m_displayMode == Collapse) {
+        d->ui->tableWidget->horizontalHeaderItem(0)->setText("成员");
+    } else {
+        d->ui->tableWidget->horizontalHeaderItem(0)->setText("日期");
+    }
+
+    QHeaderView *header = d->ui->tableWidget->horizontalHeader();
+    header->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    for (int i = 1; i < d->ui->tableWidget->columnCount(); ++i) {
+        header->setSectionResizeMode(i, QHeaderView::Stretch);
+    }
+}
+///
+/// \brief QuantifyDisplayViewDialog::setGroupMode
+/// \param isGroup
+///
+void QuantifyDisplayViewDialog::setGroupMode(bool isGroup) {
+    Q_D(QuantifyDisplayViewDialog);
+    d->m_isGroupMode = isGroup;
+}
+///
 /// \brief QuantifyDisplayViewDialog::setContent
 /// \param info
 ///
 void QuantifyDisplayViewDialog::setContent(const QVector<RecordInfo> &info) {
     Q_D(QuantifyDisplayViewDialog);
-    d->m_info = info;
-
-    const int rows = info.size();
-    d->ui->tableWidget->setRowCount(rows);
-
-    QHeaderView *header = d->ui->tableWidget->horizontalHeader();
-    header->setSectionResizeMode(0, QHeaderView::Fixed);
-    d->ui->tableWidget->setColumnWidth(0, 100);
-    for (int i = 1; i < d->ui->tableWidget->columnCount(); ++i) {
-        header->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
-
-    for (int row = 0; row < rows; ++row) {
-        createRow(row, info[row]);
-    }
+    d->m_originalInfo = info;
+    d->m_filterText.clear();                // 重置过滤
+    d->ui->editFilter->clear();          // 清空过滤输入框
+    updateDisplay();
 }
 ///
 /// \brief QuantifyDisplayViewDialog::closeEvent
@@ -202,52 +373,11 @@ void QuantifyDisplayViewDialog::on_btnExport_clicked() {
 /// \brief QuantifyDisplayViewDialog::on_btnFilter_clicked
 ///
 void QuantifyDisplayViewDialog::on_btnFilter_clicked() {
+    updateDisplay();
+}
+
+void QuantifyDisplayViewDialog::on_comboDisplayMode_currentIndexChanged(int index) {
     Q_D(QuantifyDisplayViewDialog);
-    d->ui->tableWidget->clearContents();
-    QString filterText = d->ui->editFilter->text();
-    if (filterText.isEmpty()) {
-        setContent(d->m_info);
-        return;
-    }
-
-    QStringList filters = filterText.split('|', Qt::SkipEmptyParts);
-    auto matches = [&filters](const RecordInfo &info) {
-        foreach (const QString &f, filters) {
-            if (info.note.contains(f) || info.reason.contains(f))
-                return true;
-        }
-        return false;
-    };
-
-    // 计算匹配行数
-    int matchedRows = 0;
-    foreach (const RecordInfo &info, d->m_info) {
-        if (matches(info))
-            ++matchedRows;
-    }
-
-    d->ui->tableWidget->setRowCount(matchedRows + 1);
-    QHeaderView *header = d->ui->tableWidget->horizontalHeader();
-    header->setSectionResizeMode(0, QHeaderView::Fixed);
-    d->ui->tableWidget->setColumnWidth(0, 100);
-    for (int i = 1; i < d->ui->tableWidget->columnCount(); ++i) {
-        header->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
-
-    int row = 0;
-    double total = 0;
-    QString date;
-    foreach (const RecordInfo &info, d->m_info) {
-        if (matches(info)) {
-            createRow(row, info);
-            ++row;
-            total += info.delta;
-            date = info.date;
-        }
-    }
-    RecordInfo info;
-    info.reason = "总计";
-    info.date = date;
-    info.delta = total;
-    createRow(row, info);
+    d->m_displayMode = static_cast<DisplayMode>(index);
+    updateDisplay();
 }

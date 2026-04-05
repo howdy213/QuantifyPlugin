@@ -1,13 +1,9 @@
-#ifndef QUANTIFYDISPLAYWINDOW_H
-#define QUANTIFYDISPLAYWINDOW_H
-
-#include <QtWidgets/QWidget>
 /**
  * @file classrecord.h
  * @brief 班级记录类
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -26,6 +22,9 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#ifndef QUANTIFYDISPLAYWINDOW_H
+#define QUANTIFYDISPLAYWINDOW_H
+
 #include "WConfig/wconfigdocument.h"
 #include <QFileDialog>
 #include <QDesktopServices>
@@ -53,11 +52,15 @@ public:
     void createRow(int row, const QString& name, const QVector<Record>& rec, float total);
     bool tableTextRank(int logicalIndex, const QString& A, const QString& B);
     void setViewDlg(QuantifyDisplayViewDialog *dlg) { viewDlg = dlg; };
+signals:
+    void recordRefresh();
 private slots:
     void on_btnExport_clicked();
     void on_CustomSort(int logicalIndex);
     void on_quantifyTable_cellDoubleClicked(int row, int column);
     void on_btnRefresh_clicked();
+    void on_comboType_currentIndexChanged(int index);
+    void on_checkAverage_stateChanged(int arg1);
 
 private:
     QuantifyDisplayViewDialog *viewDlg = nullptr;

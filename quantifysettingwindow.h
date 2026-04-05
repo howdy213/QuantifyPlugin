@@ -42,11 +42,20 @@ public:
     ~QuantifySettingWindow();
     void setDoc(WConfigDocument *doc);
 private slots:
+    void on_btnOpenDir_clicked();
     void on_btnPath_clicked();
     void on_btnConfig_clicked();
     void on_btnSelectPath_clicked();
+    void on_btnChangeConfig_clicked();
+
 private:
-    WConfigDocument *doc = nullptr;
+    bool createTemplateFile(const QString &filePath, const QString &content);
+    bool createNamelistExcel(const QString &filePath);
+    bool createConfigFile(const QString &configPath,
+                          const QDir &baseDir,
+                          const QString &termDirName,
+                          const QString &engineType);
+    WConfigDocument *m_doc = nullptr;
     QString path = "";
     Ui::QuantifySettingWindow *ui;
 };

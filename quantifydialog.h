@@ -2,8 +2,8 @@
  * @file classrecord.h
  * @brief 班级记录类
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *

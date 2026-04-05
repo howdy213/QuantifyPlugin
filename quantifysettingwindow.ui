@@ -14,61 +14,14 @@
    <string>Form</string>
   </property>
   <layout class="QGridLayout" name="gridLayout">
-   <item row="1" column="1" colspan="4">
-    <spacer name="spacerConfig">
-     <property name="orientation">
-      <enum>Qt::Orientation::Horizontal</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>40</width>
-       <height>20</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="1" column="5" colspan="2">
-    <widget class="QLabel" name="labelConfigPath">
+   <item row="5" column="0" colspan="7">
+    <widget class="QLabel" name="labelOpenDir">
      <property name="text">
-      <string>...</string>
+      <string>打开插件根目录</string>
      </property>
     </widget>
    </item>
-   <item row="1" column="7">
-    <widget class="QPushButton" name="btnConfig">
-     <property name="text">
-      <string>选择</string>
-     </property>
-    </widget>
-   </item>
-   <item row="3" column="0" colspan="8">
-    <spacer name="verticalSpacer">
-     <property name="orientation">
-      <enum>Qt::Orientation::Vertical</enum>
-     </property>
-     <property name="sizeHint" stdset="0">
-      <size>
-       <width>20</width>
-       <height>250</height>
-      </size>
-     </property>
-    </spacer>
-   </item>
-   <item row="1" column="0">
-    <widget class="QLabel" name="labelConfig">
-     <property name="text">
-      <string>配置文件</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="0">
-    <widget class="QLabel" name="labelPath">
-     <property name="text">
-      <string>操行路径：</string>
-     </property>
-    </widget>
-   </item>
-   <item row="0" column="2" colspan="4">
+   <item row="0" column="3" colspan="2">
     <spacer name="spacerPath">
      <property name="orientation">
       <enum>Qt::Orientation::Horizontal</enum>
@@ -81,10 +34,81 @@
      </property>
     </spacer>
    </item>
-   <item row="0" column="1">
-    <widget class="QLabel" name="labelPathContent">
+   <item row="2" column="0">
+    <widget class="QLabel" name="labelEngine">
      <property name="text">
-      <string>...</string>
+      <string>规则引擎</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="labelPath">
+     <property name="text">
+      <string>操行路径：</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="7">
+    <widget class="QPushButton" name="btnConfig">
+     <property name="text">
+      <string>选择</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0" colspan="8">
+    <spacer name="verticalSpacer">
+     <property name="orientation">
+      <enum>Qt::Orientation::Vertical</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>20</width>
+       <height>250</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="2" column="7">
+    <widget class="QComboBox" name="comboBox"/>
+   </item>
+   <item row="0" column="5" colspan="2">
+    <widget class="QPushButton" name="btnSelectPath">
+     <property name="text">
+      <string>选择</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0" colspan="7">
+    <widget class="QLabel" name="labelChangeConfig">
+     <property name="text">
+      <string>更改配置</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="labelConfig">
+     <property name="text">
+      <string>配置文件</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="7">
+    <widget class="QPushButton" name="btnChangeConfig">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>修改</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="7">
+    <widget class="QPushButton" name="btnOpenDir">
+     <property name="text">
+      <string>打开</string>
      </property>
     </widget>
    </item>
@@ -95,22 +119,32 @@
      </property>
     </widget>
    </item>
-   <item row="0" column="6">
-    <widget class="QPushButton" name="btnSelectPath">
+   <item row="1" column="1">
+    <widget class="QLabel" name="labelConfigPath">
      <property name="text">
-      <string>选择</string>
+      <string>...</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="0">
-    <widget class="QLabel" name="labelEngine">
+   <item row="0" column="1" colspan="2">
+    <widget class="QLabel" name="labelPathContent">
      <property name="text">
-      <string>规则引擎</string>
+      <string>...</string>
      </property>
     </widget>
    </item>
-   <item row="2" column="7">
-    <widget class="QComboBox" name="comboBox"/>
+   <item row="1" column="3" colspan="4">
+    <spacer name="spacerConfig">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
    </item>
    <item row="2" column="1" colspan="6">
     <spacer name="horizontalSpacer">

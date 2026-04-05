@@ -48,6 +48,7 @@ public:
     void clear();
     void refresh();
     QMap<QString,StudentRecord>students;
+    QMap<QString,GroupRecord>groups;
 private:
     void readStudentFile();
     void readGroupFile();
@@ -58,7 +59,6 @@ private:
     unsigned int weekCount=0;
     QString folder="";
     ClassRule rules;
-    QMap<QString,GroupRecord>groups;
     RuleEngine engine;
 };
 

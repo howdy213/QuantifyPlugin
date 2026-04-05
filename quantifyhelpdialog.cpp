@@ -1,3 +1,27 @@
+/**
+ * @file quantifyhelptwindow.cpp
+ * @brief 帮助对话框
+ * @author howdy213
+ * @date 2026-4-5
+ * @version 1.4.0
+ *
+ * Copyright (C) 2025-2026 howdy213
+ *
+ * This file is part of QuantifyPlugin.
+ *
+ * QuantifyPlugin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * QuantifyPlugin is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #include <QComboBox>
 #include <QDir>
 #include <QFile>
@@ -8,13 +32,8 @@
 #include <QMessageBox>
 #include <QTextBrowser>
 
-#include "QXlsx.h"
 #include "WConfig/wconfigdocument.h"
 #include "WECore/WDef/wedef.h"
-#include "WECore/WPlugin/wplugin.h"
-#include "WFile/wpath.h"
-#include "WFile/wshellexecute.h"
-#include "WPlugin/wplugindata.h"
 
 #include "quantifyhelpdialog.h"
 #include "ui_quantifyhelpdialog.h"
@@ -141,6 +160,8 @@ QuantifyHelpDialog::QuantifyHelpDialog(WConfigDocument *doc, QWidget *parent)
     setupGroupTab();
     setupConfigTab();
     setupNamelistTab();
+    setupSecurityTab();
+    setupAboutTab();
 }
 ///
 /// \brief QuantifyHelpDialog::~QuantifyHelpDialog
@@ -443,228 +464,56 @@ void QuantifyHelpDialog::setupNamelistTab() {
     browser->setHtml(wrapHtml(content));
 }
 ///
-/// \brief QuantifyHelpDialog::on_btnExample_clicked
+/// \brief QuantifyHelpDialog::setupAboutTab
 ///
-void QuantifyHelpDialog::on_btnExample_clicked() {
-    if (!m_doc) {
-        QMessageBox::warning(this, tr("错误"),
-                             tr("无法获取配置文档，示例创建失败。"));
-        return;
-    }
-
-    QDialog dlg(this);
-    dlg.setWindowTitle(tr("新建示例"));
-    QVBoxLayout *mainLayout = new QVBoxLayout(&dlg);
-
-    QLabel *labelPath =
-        new QLabel(tr("请输入子目录名称（仅允许字母、数字、下划线）："));
-    QLineEdit *editPath = new QLineEdit;
-    editPath->setPlaceholderText("例如 term1");
-
-    QLabel *labelEngine = new QLabel(tr("请选择规则引擎："));
-    QComboBox *comboEngine = new QComboBox;
-    comboEngine->addItem("native");
-    comboEngine->addItem("js");
-    comboEngine->setCurrentIndex(0);
-
-    QDialogButtonBox *buttonBox =
-        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
-    connect(buttonBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
-
-    mainLayout->addWidget(labelPath);
-    mainLayout->addWidget(editPath);
-    mainLayout->addWidget(labelEngine);
-    mainLayout->addWidget(comboEngine);
-    mainLayout->addWidget(buttonBox);
-
-    if (dlg.exec() != QDialog::Accepted)
-        return;
-
-    QString termDirName = editPath->text().trimmed();
-    QString engineType = comboEngine->currentText();
-
-    static QRegularExpression re("^[a-zA-Z0-9_]+$");
-    if (termDirName.isEmpty() || !re.match(termDirName).hasMatch()) {
-        QMessageBox::warning(
-            this, tr("错误"),
-            tr("目录名称只能包含字母、数字和下划线，且不能为空。"));
-        return;
-    }
-
-    QString pluginPath =
-        WPath().splitPath(PPlugin->getMetaData(Plugin::Path).toString());
-    QString basePath = pluginPath + "Quantify/";
-    QDir baseDir(basePath);
-
-    if (baseDir.exists()) {
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("目录已存在"));
-        msgBox.setText(tr("目录 %1 已存在，请选择操作：").arg(basePath));
-        QPushButton *deleteButton =
-            msgBox.addButton(tr("删除并重建"), QMessageBox::YesRole);
-        QPushButton *continueButton =
-            msgBox.addButton(tr("继续(不清除)"), QMessageBox::NoRole);
-        QPushButton *cancelButton =
-            msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
-        msgBox.exec();
-
-        if (msgBox.clickedButton() == cancelButton) {
-            return;
-        } else if (msgBox.clickedButton() == deleteButton) {
-            if (!baseDir.removeRecursively()) {
-                QMessageBox::critical(this, tr("错误"),
-                                      tr("无法清空目录，请检查权限。"));
-                return;
-            }
-            if (!QDir().mkpath(basePath)) {
-                QMessageBox::critical(this, tr("错误"), tr("无法创建基础目录。"));
-                return;
-            }
-            baseDir = QDir(basePath);
-        }
-    }
-
-    QStringList subDirs = {"addon",
-                           "template",
-                           termDirName,
-                           termDirName + "/rule",
-                           termDirName + "/record",
-                           termDirName + "/group"};
-    for (const QString &sub : subDirs) {
-        if (!baseDir.mkpath(sub)) {
-            QMessageBox::critical(this, tr("错误"), tr("无法创建目录 %1").arg(sub));
-            return;
-        }
-    }
-
-    if (!createTemplateFile(baseDir.filePath("template/record.txt"),
-                            "daily\n[late]\n\n"))
-        return;
-
-    if (!createTemplateFile(baseDir.filePath("template/rule-native.txt"),
-                            "reason reason_ch\n-\n-\n-\n-\n"))
-        return;
-
-    if (!createTemplateFile(baseDir.filePath("template/rule-js.txt"),
-                            "({\n"
-                            "    reason: 'late',\n"
-                            "    reason_ch: '迟到',\n"
-                            "    daily: function(record) { return record; },\n"
-                            "    weekly: function(record) { return record; },\n"
-                            "    termly: function(record) { return record; }\n"
-                            "})\n"))
-        return;
-
-    QString excelPath = baseDir.filePath(termDirName + "/namelist.xlsx");
-    if (!createNamelistExcel(excelPath))
-        return;
-
-    QString configPath = pluginPath + "Quantify/config.json";
-    if (!createConfigFile(configPath, baseDir, termDirName, engineType))
-        return;
-
-    QMessageBox::information(
-        this, tr("成功"),
-        tr("示例文件夹及文件已创建在：%1\n\n配置文件已生成：%"
-           "2\n请重启插件以应用新配置。")
-            .arg(basePath, configPath));
+void QuantifyHelpDialog::setupAboutTab()
+{
+    QTextBrowser *browser = findChild<QTextBrowser *>("textBrowserAbout");
+    if (!browser) return;
+    browser->setOpenExternalLinks(true);
+    QString content = R"(
+        <h2>量化插件 QuantifyPlugin</h2>
+        <p><b>版本：</b>1.4.0</p>
+        <p><b>作者：</b>howdy213</p>
+        <p><b>日期：</b>2026-03-01</p>
+        <p><b>许可证：</b>GNU General Public License v3.0</p>
+        <p>本插件用于学生日常行为量化评分，支持多种规则引擎，提供直观的显示和编辑界面。</p>
+        <p>更多信息请参阅 <a href='https://github.com/howdy213/QuantifyPlugin'>GitHub 仓库</a>。</p>
+    )";
+    browser->setHtml(wrapHtml(content));
 }
 ///
-/// \brief QuantifyHelpDialog::createTemplateFile
-/// \param filePath
-/// \param content
-/// \return
+/// \brief QuantifyHelpDialog::setupSecurityTab
 ///
-bool QuantifyHelpDialog::createTemplateFile(const QString &filePath,
-                                            const QString &content) {
-    QFile file(filePath);
-    if (file.exists())
-        return true;
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, tr("错误"),
-                              tr("无法创建模板文件：%1").arg(filePath));
-        return false;
-    }
-    QTextStream out(&file);
-    out << content;
-    file.close();
-    return true;
-}
-///
-/// \brief QuantifyHelpDialog::createNamelistExcel
-/// \param filePath
-/// \return
-///
-bool QuantifyHelpDialog::createNamelistExcel(const QString &filePath) {
-    if (QFile::exists(filePath))
-        return true;
-    QXlsx::Document xlsx;
-    xlsx.write(1, 1, "zs");
-    xlsx.write(1, 2, "张三");
-    xlsx.write(2, 1, "ls");
-    xlsx.write(2, 2, "李四");
-    xlsx.write(3, 1, "ww");
-    xlsx.write(3, 2, "王五");
-    if (!xlsx.saveAs(filePath)) {
-        QMessageBox::critical(this, tr("错误"),
-                              tr("无法创建 namelist.xlsx 文件。"));
-        return false;
-    }
-    return true;
-}
-///
-/// \brief QuantifyHelpDialog::createConfigFile
-/// \param configPath
-/// \param baseDir
-/// \param termDirName
-/// \param engineType
-/// \return
-///
-bool QuantifyHelpDialog::createConfigFile(const QString &configPath,
-                                          const QDir &baseDir,
-                                          const QString &termDirName,
-                                          const QString &engineType) {
-    QFileInfo configInfo(configPath);
-    QDir configDir = configInfo.absoluteDir();
-    if (!configDir.exists() && !configDir.mkpath(".")) {
-        QMessageBox::critical(this, tr("错误"), tr("无法创建配置目录。"));
-        return false;
-    }
+void QuantifyHelpDialog::setupSecurityTab() {
+    QTextBrowser *browser = findChild<QTextBrowser *>("textBrowserSecurity");
+    if (!browser) return;
 
-    if (QFile::exists(configPath)) {
-        int ret = QMessageBox::question(
-            this, tr("配置文件已存在"),
-            tr("配置文件 %1 已存在，是否覆盖？").arg(configPath),
-            QMessageBox::Yes | QMessageBox::No);
-        if (ret == QMessageBox::No)
-            return false;
+    QString content = R"(
+        <h2>安全设置</h2>
+        <p>为防止记录文件被直接篡改，插件支持三种保护模式：</p>
+        <ul>
+            <li><b>无</b>：不进行任何保护，记录文件为明文。</li>
+            <li><b>Base64</b>：简单编码，仅防止直接查看，可逆且无加密强度。</li>
+            <li><b>加密</b>：使用 AES-256-GCM 算法加密记录文件，密钥需存储在外部移动设备（如 USB 密钥）中，每次启动插件时读取。</li>
+        </ul>
+        <p>密钥派生可使用 PBKDF2 从用户密码生成，也可自动读取设备中的密钥文件。</p>
+        <p>加密模式可在配置文件中设置：</p>
+        <pre>{
+    "security": {
+        "mode": "aes"          // "none", "base64", "aes"
     }
+}</pre>
 
-    QJsonObject configObj;
-    // 路径使用相对路径（相对于配置文件所在目录），例如 "./term1"
-    configObj["path"] = "./" + termDirName;
-    configObj["addon"] =
-        m_doc->hasArg("addon") ? m_doc->get("addon").toString() : "./addon";
-    configObj["engine"] = engineType;
-    configObj["template"] = m_doc->hasArg("template")
-                                ? m_doc->get("template").toString()
-                                : "./template";
+        <h3>编辑窗口安全标识</h3>
+        <p>在编辑窗口底部会显示类似 <code>A1 2026-4-5 12:30:00:111</code> 的信息：</p>
+        <ul>
+            <li><b>前两位十六进制数</b>（如 <code>A1</code>）：表示所有记录文件列表的哈希值，辅助发现文件是否被删除</li>
+            <li><b>时间戳及文件名</b>（如 <code>2026-4-5 12:30:00:111 20260405-1.record</code>）：表示所有记录文件中最后修改时间最晚的日期时间，辅助发现文件是否被修改</li>
+        </ul>
+        <p>该标识可用于快速判断记录文件是否被外部修改，或是否与当前显示的数据同步。</p>
 
-    QJsonDocument doc(configObj);
-    QFile configFile(configPath);
-    if (!configFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, tr("错误"), tr("无法写入配置文件。"));
-        return false;
-    }
-    configFile.write(doc.toJson());
-    configFile.close();
-    return true;
-}
-///
-/// \brief QuantifyHelpDialog::on_btnOpenDir_clicked
-///
-void QuantifyHelpDialog::on_btnOpenDir_clicked() {
-    WShellExecute::syncExecute(
-        WPath().splitPath(PPlugin->getMetaData(Plugin::Path).toString()));
+        <p><b>注意：</b>Base64 和加密模式尚未完全实现，当前仅为界面预览。</p>
+    )";
+    browser->setHtml(wrapHtml(content));
 }

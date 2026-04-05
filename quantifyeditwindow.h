@@ -1,9 +1,9 @@
 /**
  * @file quantifyeditwindow.h
- * @brief 考勤记录/规则编辑
+ * @brief 考勤记录/规则/组文件编辑
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -31,21 +31,25 @@
 
 #include "WConfig/wconfigdocument.h"
 #include "classrecord.h"
+#include "qcalendarwidget.h"
 
 enum InputType {TYPE_RULE,TYPE_RECORD};
 namespace Ui {
 class QuantifyEditWindow;
 }
 
+class QuantifyDisplayWindow;
 class QuantifyEditWindow : public QWidget
 {
     Q_OBJECT
 
 public:
-    explicit QuantifyEditWindow(QWidget *parent = nullptr);
+    explicit QuantifyEditWindow(QuantifyDisplayWindow *displayWnd, QWidget *parent = nullptr);
     ~QuantifyEditWindow();
-    ClassRecord* cr=nullptr;
-    WConfigDocument* doc=nullptr;
+
+    ClassRecord* cr = nullptr;
+    WConfigDocument* doc = nullptr;
+    QuantifyDisplayWindow* displayWnd=nullptr;
 private slots:
     void on_comboBox_editTextChanged(const QString &arg1);
     void on_btnTemplate_clicked();
@@ -54,15 +58,24 @@ private slots:
     void on_btnSave_clicked();
     void on_btnOpen_clicked();
     void on_btnClear_clicked();
-
     void on_addonButton_clicked();
-
     void on_keyboardButton_clicked();
+    void on_calendarWidget_clicked(const QDate &date);
+    void on_tabWidget_currentChanged(int index);
+    void onNamelistButtonClicked();
+    void on_calendarWidget_activated(const QDate &date);   // 双击/回车触发
+
+public slots:
+    void onUpdateSecurityInfo();
 
 private:
-    InputType inType=TYPE_RULE;
-    bool isChecked=false;
-private:
+    void loadNamelistButtons();          // 从 cr 加载姓名按钮
+    void updateCalendarColors();         // 更新日历颜色
+    QMap<QDate, int> countRuleFiles();   // 统计规则文件数量
+    void updateSecurityInfo();
+    InputType inType = TYPE_RULE;
+    bool isChecked = false;
+
     Ui::QuantifyEditWindow *ui;
 };
 

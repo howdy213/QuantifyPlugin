@@ -38,6 +38,7 @@ struct RecordInfo{
     int recordType;
     QString rule;
     int week;
+    QString memberName;
 };
 class StudentRecordViewer {
 public:

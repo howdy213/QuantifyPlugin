@@ -2,8 +2,8 @@
  * @file classrecord.h
  * @brief 班级记录类
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -198,7 +198,8 @@ void QuantifyDisplayWindow::on_btnRefresh_clicked() {
     }
     createCol(colCount - 1, "总分", headerFont, headerColor);
 
-    const int rowCount = cr.students.size();
+    int currentMode = ui->comboType->currentIndex(); // 0:个人, 1:小组
+    int rowCount = (currentMode == 0) ? cr.students.size() : cr.groups.size();
     ui->quantifyTable->setRowCount(rowCount);
 
     QHeaderView *header = ui->quantifyTable->horizontalHeader();
@@ -209,47 +210,144 @@ void QuantifyDisplayWindow::on_btnRefresh_clicked() {
     }
 
     int row = 0;
-    for (auto it = cr.students.constBegin(); it != cr.students.constEnd();
-         ++it, ++row) {
-        createRow(row, it.value().name_ch, it->weekly, it.value().getScore().s3);
+    bool useAverage = ui->checkAverage->isChecked(); // 读取复选框状态
+    if (currentMode == 0) {
+        // 个人模式
+        for (auto it = cr.students.constBegin(); it != cr.students.constEnd(); ++it, ++row) {
+            const StudentRecord& student = it.value();
+            if (!useAverage) {
+                // 原始分数
+                createRow(row, student.name_ch, student.weekly, student.getScore().s3);
+            } else {
+                // 平均分：每周除以7，总分除以周数
+                QVector<Record> avgWeekly = student.weekly;
+                for (int w = 0; w < avgWeekly.size(); ++w) {
+                    avgWeekly[w].s2 /= 7.0; // 周总分 -> 日均
+                }
+                double avgTotal = (weekCount > 0) ? (student.getScore().s3 / weekCount) : 0.0;
+                createRow(row, student.name_ch, avgWeekly, avgTotal);
+            }
+        }
+    } else {
+        // 小组模式
+
+        for (auto git = cr.groups.constBegin(); git != cr.groups.constEnd(); ++git, ++row) {
+            const GroupRecord& group = git.value();
+            double groupTotal = 0.0;
+            int memberCount = 0;
+            QVector<Record> groupWeekly(weekCount, Record{}); // 每周记录，仅 s2 有效
+
+            for (const QString& member : group.members) {
+                auto sit = cr.students.constFind(member);
+                if (sit == cr.students.constEnd()) continue;
+                const StudentRecord& student = sit.value();
+                groupTotal += student.getScore().s3;
+                memberCount++;
+                for (int w = 0; w < weekCount && w < student.weekly.size(); ++w) {
+                    groupWeekly[w].s2 += student.weekly[w].s2;
+                }
+            }
+
+            if (useAverage && memberCount > 0) {
+                groupTotal /= memberCount;
+                for (int w = 0; w < weekCount; ++w) {
+                    groupWeekly[w].s2 /= memberCount;
+                }
+            }
+
+            createRow(row, group.name_ch, groupWeekly, groupTotal);
+        }
     }
 
     if (editWnd) {
         editWnd->cr = &cr;
     }
+    emit recordRefresh();
 }
 ///
 /// \brief QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked
 /// \param row
 /// \param column
-///
-void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row,
-                                                               int column) {
-    // 查找对应的学生记录
-    QString name = ui->quantifyTable->item(row, 0)->text();
-    auto it = std::find_if(
-        cr.students.constBegin(), cr.students.constEnd(),
-        [&name](const StudentRecord &sr) { return sr.name_ch == name; });
-    if (it == cr.students.constEnd())
-        return;
+///// quantifydisplaywindow.cpp
+void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row, int column)
+{
+    if (column == 0) return;  // 姓名列不处理
 
-    if (column == 0)
-        return;
+    // 获取当前模式：0=个人，1=小组
+    int mode = ui->comboType->currentIndex();
 
+    // 准备要显示的记录列表
+    QVector<RecordInfo> displayInfo;
+    QString displayName;
+    bool isGroupMode = (mode == 1);
+
+    if (mode == 0) {
+        // 个人模式：查找对应学生
+        QString name = ui->quantifyTable->item(row, 0)->text();
+        auto it = std::find_if(cr.students.constBegin(), cr.students.constEnd(),
+                               [&name](const StudentRecord &sr) { return sr.name_ch == name; });
+        if (it == cr.students.constEnd()) return;
+
+        displayName = it->name_ch;
+        if (column == ui->quantifyTable->columnCount() - 1) {
+            displayInfo = it->info;               // 所有记录
+        } else {
+            displayInfo = it->getWeeklyInfo(column - 1); // 某周记录
+        }
+    } else {
+        // 小组模式：查找对应小组
+        QString groupName = ui->quantifyTable->item(row, 0)->text();
+        auto git = std::find_if(cr.groups.constBegin(), cr.groups.constEnd(),
+                                [&groupName](const GroupRecord &gr) { return gr.name_ch == groupName; });
+        if (git == cr.groups.constEnd()) return;
+
+        displayName = git->name_ch;
+        // 收集该小组所有成员的记录，并为每条记录添加 memberName
+        for (const QString &member : git->members) {
+            auto sit = cr.students.constFind(member);
+            if (sit == cr.students.constEnd()) continue;
+            QVector<RecordInfo> memberInfo;
+            if (column == ui->quantifyTable->columnCount() - 1) {
+                memberInfo = sit->info;           // 所有记录
+            } else {
+                memberInfo = sit->getWeeklyInfo(column - 1); // 某周记录
+            }
+            for (RecordInfo &info : memberInfo) {
+                info.memberName = sit->name_ch;   // 标记成员姓名
+                displayInfo.append(info);
+            }
+        }
+    }
+
+    if (displayInfo.isEmpty()) return;
+
+    // 创建或重用查看对话框
     if (!viewDlg) {
         viewDlg = new QuantifyDisplayViewDialog(this);
         viewDlg->setDialog(this);
     }
 
-    if (column == ui->quantifyTable->columnCount() - 1) {
-        viewDlg->setContent(it->info);
-    } else {
-        viewDlg->setContent(it->getWeeklyInfo(column - 1));
-    }
-    viewDlg->setName(it->name_ch);
+    viewDlg->setGroupMode(isGroupMode);          // 设置是否为小组模式
+    viewDlg->setContent(displayInfo);
+    viewDlg->setName(displayName);
 
     if (viewDlg->isHidden())
         viewDlg->show();
     else
         viewDlg->activateWindow();
 }
+///
+/// \brief QuantifyDisplayWindow::on_comboType_currentIndexChanged
+/// \param index
+///
+void QuantifyDisplayWindow::on_comboType_currentIndexChanged(int index)
+{
+    on_btnRefresh_clicked();
+}
+
+
+void QuantifyDisplayWindow::on_checkAverage_stateChanged(int arg1)
+{
+    on_btnRefresh_clicked();
+}
+

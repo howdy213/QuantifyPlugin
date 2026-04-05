@@ -2,8 +2,8 @@
  * @file classrecord.h
  * @brief 班级记录类
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-4-5
+ * @version 1.4.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -46,8 +46,16 @@ bool QuantifyPlugin::init(WMetaData &msg) {
     PluginData::setPlugin(qvariant_cast<WPlugin *>(msg.map["Plugin"]));
 
     if (auto plugin = qvariant_cast<WPlugin *>(msg.map["Plugin"])) {
-        plugin->setMetaData("name", "Quantify");
-        plugin->setMetaData("author", "WidgetExplorer");
+        plugin->setMetaData(Plugin::Name, "Quantify");
+        plugin->setMetaData(Plugin::Author, "howdy213");
+        if(plugin->getMetaData(Plugin::Init)=="start"){
+            if (widget == nullptr) {
+                widget = new QuantifyDialog;
+                widget->setPlugin(this);
+                widget->show();
+            } else
+                widget->activateWindow();
+        }
     }
     return true;
 }
