@@ -1,0 +1,5 @@
+<RCC>
+    <qresource prefix="/keys">
+        <file>keys/public.pem</file>
+    </qresource>
+</RCC>

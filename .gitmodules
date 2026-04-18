@@ -1,0 +1,3 @@
+[submodule "deps/WECore"]
+	path = deps/WECore
+	url = https://github.com/howdy213/WECore

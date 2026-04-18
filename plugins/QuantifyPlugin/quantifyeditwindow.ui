@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QuantifyEditWindow</class>
+ <widget class="QWidget" name="QuantifyEditWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>956</width>
+    <height>402</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="2" column="0" colspan="3">
+    <widget class="QComboBox" name="comboBox"/>
+   </item>
+   <item row="2" column="12">
+    <widget class="QPushButton" name="btnOpen">
+     <property name="text">
+      <string>打开</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="7" colspan="2">
+    <spacer name="horizontalSpacer">
+     <property name="orientation">
+      <enum>Qt::Orientation::Horizontal</enum>
+     </property>
+     <property name="sizeHint" stdset="0">
+      <size>
+       <width>40</width>
+       <height>20</height>
+      </size>
+     </property>
+    </spacer>
+   </item>
+   <item row="2" column="13">
+    <widget class="QPushButton" name="btnSave">
+     <property name="text">
+      <string>保存</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="12" colspan="2">
+    <widget class="QLabel" name="labelCheck">
+     <property name="text">
+      <string>未检查</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="14" rowspan="3">
+    <widget class="QTabWidget" name="tabWidget">
+     <property name="currentIndex">
+      <number>2</number>
+     </property>
+     <widget class="QWidget" name="tabCalendar">
+      <attribute name="title">
+       <string>日历</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_3">
+       <item row="0" column="0">
+        <widget class="QCalendarWidget" name="calendarWidget"/>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabNameList">
+      <attribute name="title">
+       <string>名单</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_4">
+       <item row="0" column="0">
+        <widget class="QWidget" name="namelistWidget" native="true"/>
+       </item>
+      </layout>
+     </widget>
+     <widget class="QWidget" name="tabLog">
+      <attribute name="title">
+       <string>日志</string>
+      </attribute>
+      <layout class="QGridLayout" name="gridLayout_2">
+       <item row="0" column="0">
+        <widget class="QTextEdit" name="logEdit"/>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+   <item row="3" column="5">
+    <widget class="QPushButton" name="btnClear">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>清空</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="4">
+    <widget class="QPushButton" name="btnTemplate">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>模板</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0" colspan="14">
+    <widget class="LineNumberTextEdit" name="textEdit"/>
+   </item>
+   <item row="3" column="11">
+    <widget class="QPushButton" name="btnCheck">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>检查</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="3" colspan="9">
+    <widget class="QLineEdit" name="nameEdit">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+       <horstretch>5</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="9">
+    <widget class="QPushButton" name="addonButton">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>工具</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="10">
+    <widget class="QPushButton" name="keyboardButton">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>键盘</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0" colspan="10">
+    <widget class="QLabel" name="labelSecurity">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="text">
+      <string>Security</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="10">
+    <widget class="QLabel" name="labelEncryption">
+     <property name="text">
+      <string> </string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>LineNumberTextEdit</class>
+   <extends>QTextEdit</extends>
+   <header>linenumbertextedit.h</header>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>
