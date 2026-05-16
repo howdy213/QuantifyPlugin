@@ -21,9 +21,9 @@
  */
 #include "lightwidget.h"
 
-#include "WECore/WConfig/wconfigdocument.h"
-#include "WECore/WE/we.h"
-#include "WECore/WFile/wpath.h"
+#include "WECore/file/wpath.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/we/we.h"
 
 #include <QApplication>
 #include <QLockFile>
@@ -31,7 +31,9 @@
 #include <QMessageBox>
 #include <QStyleFactory>
 #include <QSystemTrayIcon>
+#include "Qlementine/lib/include/oclero/qlementine.hpp"
 using namespace we::Consts;
+using namespace we;
 
 int main(int argc, char *argv[]) {
     QLockFile lockfile(WPath().getModuleFolder() + "we.lock");
@@ -58,8 +60,10 @@ int main(int argc, char *argv[]) {
     }
 
     QApplication a(argc, argv);
+    // auto* style=new oclero::qlementine::QlementineStyle(&a);
+    // a.setStyle(style);
     a.setWindowIcon(QIcon(":/icons/icon/we.png"));
-    //a.setQuitOnLastWindowClosed(false);
+    // a.setQuitOnLastWindowClosed(false);
 
     QStringList params;
     for (int i = 1; i <= argc - 1; i++)

@@ -1,11 +1,11 @@
 /**
  * @file lightwidget.h
- * @brief LightWidget类头文件
+ * @brief Header file for the LightWidget class.
  * @author howdy213
- * @date 2026-1-30
- * @version 1.1.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright 2025-2026 howdy213
+ * @copyright Copyright 2025-2026 howdy213
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,26 +21,32 @@
  */
 #ifndef LIGHTWIDGET_H
 #define LIGHTWIDGET_H
-#include "WECore/WE/webase.h"
-#include "WECore/WPlugin/wpluginmetadata.h"
-#include "WECore/WPlugin/wpluginmanager.h"
+#include "WECore/we/webase.h"
+#include "WECore/plugin/wpluginmessage.h"
+#include "WECore/plugin/wpluginmanager.h"
 
 #include <QMap>
 #include <QString>
 
 class LightWidgetPrivate;
-class WE_NAMESPACE::LightWidget : public WEBase {
+namespace we {
+/**
+ * @class LightWidget
+ * @brief Main class for the lightweight widget system.
+ */
+class LightWidget : public WEBase {
 public:
     LightWidget();
     bool init();
     bool initMainPlugin(QStringList params, QString defualtWidget);
     void initAllPlugin();
     bool initPlugin(
-        WPlugin *plugin, InitDataProc proc = [](WMetaData &) {});
+        WPlugin *plugin, InitDataProc proc = [](WMessage &) {});
     void initData(QSharedPointer<WEBaseData> data);
 
 private:
     LightWidgetPrivate *d = nullptr;
 };
+} // namespace we
 
 #endif // LIGHTWIDGET_H

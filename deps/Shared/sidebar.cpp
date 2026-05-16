@@ -1,5 +1,4 @@
 #include "sidebar.h"
-#include"WECore/wdef.h"
 SideBar::SideBar(QWidget *parent) :
     QWidget(parent)
 {
@@ -47,7 +46,7 @@ void SideBar::setBtnCount(unsigned int count){
     gridLayout->addItem(verticalSpacer, count, 0, 1, 1);
     btnGroup.button(0)->setChecked(true);
     QPalette pal(this->palette());
-    pal.setColor(QPalette::Window, GRAY_3);
+    pal.setColor(QPalette::Window, QColor(240, 240, 240));
     this->setAutoFillBackground(true);
     this->setPalette(pal);
     this->setFixedWidth(70);

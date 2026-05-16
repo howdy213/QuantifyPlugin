@@ -1,11 +1,11 @@
 /**
  * @file lightsystem.cpp
- * @brief 轻量插件加载系统实现文件
+ * @brief Implementation file for the lightweight plugin loading system.
  * @author howdy213
- * @date 2026-1-30
- * @version 1.1.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright 2025-2026 howdy213
+ * @copyright Copyright 2025-2026 howdy213
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,75 +20,90 @@
  * limitations under the License.
  */
 #include "lightsystem.h"
-#include "WECore/WConfig/wconfigdocument.h"
-#include "WECore/WE/we.h"
-#include "WECore/WE/webase.h"
-#include "WECore/WFile/wpath.h"
-#include "WECore/WPlugin/wplugin.h"
-#include "WECore/WPlugin/wpluginmanager.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/we/we.h"
+#include "WECore/we/webase.h"
+#include "WECore/file/wpath.h"
+#include "WECore/plugin/wplugin.h"
+#include "WECore/plugin/wpluginmanager.h"
 
 #include <QCoreApplication>
 #include <QDir>
-using namespace we::Consts;
 
+using namespace we::Consts;
+using namespace we;
+
+/**
+ * @class LightSystemPrivate
+ * @brief Private implementation class for LightSystem.
+ */
 class LightSystemPrivate {
 public:
+    // Currently empty, reserved for future extensions
 };
 
-///
-/// \brief LightSystem::LightSystem
-///
-LightSystem::LightSystem() { d = new LightSystemPrivate; }
-///
-/// \brief LightSystem::~LightSystem
-///
-LightSystem::~LightSystem() { delete d; }
-///
-/// \brief LightSystem::loadAllPlugin
-///
+/**
+ * @brief Constructs a LightSystem object.
+ */
+LightSystem::LightSystem() {
+    d = new LightSystemPrivate;
+}
+
+/**
+ * @brief Destroys the LightSystem object.
+ */
+LightSystem::~LightSystem() {
+    delete d;
+}
+
+/**
+ * @brief Loads all plugins defined in the configuration file.
+ */
 void LightSystem::loadAllPlugin() {
     QString plugins = WPath().getModuleFolder() + Plugins::ConfigPath;
-    WConfigDocument doc;
+    WMetaDocument doc;
     doc.load(plugins, true);
     auto map = doc.toMap();
-    for (auto it = map.begin(); it != map.end(); it++) {
+    for (auto it = map.begin(); it != map.end(); ++it) {
         QJsonDocument doc2(it.value().toJsonObject());
         loadPlugin(plugins, doc2.toJson());
     }
 }
-///
-/// \brief LightSystem::loadPlugin
-/// \param curPath
-/// \param config
-///
+
+/**
+ * @brief Loads a plugin using its JSON configuration.
+ * @param curPath Path to the directory containing the configuration.
+ * @param config JSON configuration string.
+ */
 void LightSystem::loadPlugin(QString curPath, QString config) {
-    WConfigDocument doc;
+    WMetaDocument doc;
     doc.load(config, false);
-    QString jsonPath = WPath().transPath(
+    QString jsonPath = WPath().resolvePath(
         curPath, qvariant_cast<QString>(doc.get(Plugins::PluginConfigPath)));
 
-    WConfigDocument objectDoc;
+    WMetaDocument objectDoc;
     objectDoc.load(jsonPath, true);
 
-    for (int i = 1;; i++) {
+    for (int i = 1;; ++i) {
         QString num = QString::number(i);
 
         auto obj = objectDoc.get(num).toJsonObject();
         if (obj.isEmpty())
             break;
         QJsonDocument doc2(obj);
-        WConfigDocument doc3;
+        WMetaDocument doc3;
         doc3.load(doc2.toJson(), false);
 
         loadSinglePlugin(jsonPath, &doc3);
     }
 }
-///
-/// \brief LightSystem::loadSinglePlugin
-/// \param jsonPath
-/// \param doc
-///
-void LightSystem::loadSinglePlugin(QString jsonPath, WConfigDocument *doc) {
+
+/**
+ * @brief Loads a single plugin instance.
+ * @param jsonPath Path to the plugin's JSON file.
+ * @param doc Metadata document containing the plugin configuration.
+ */
+void LightSystem::loadSinglePlugin(QString jsonPath, WMetaDocument *doc) {
     if (!doc->hasArg(Plugin::Path))
         return;
     WPlugin *plugin = new WPlugin(WE::inst()->getWEClass()->pluginManager());

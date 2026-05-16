@@ -1,25 +1,25 @@
 /**
- * @file virtualkeyboard.h
- * @brief 班级记录类
+ * @file virtualkeyboard.cpp
+ * @brief Virtual keyboard implementation using OSK and TabTip.
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright (C) 2025-2026 howdy213
+ * @copyright Copyright (C) 2025-2026 howdy213
  *
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <Objbase.h>
@@ -34,8 +34,10 @@
 #include <windows.h>
 typedef LONG(WINAPI *RtlGetVersionPtr)(PRTL_OSVERSIONINFOW);
 
-#include "WECore/WFile/wshellexecute.h"
+#include "WECore/file/wshellexecute.h"
 #include "virtualkeyboard.h"
+
+using namespace we;
 
 struct ComDeleter {
     void operator()(IUnknown *ptr) const {
@@ -46,10 +48,11 @@ struct ComDeleter {
 
 template <typename T> using com_ptr = std::unique_ptr<T, ComDeleter>;
 
-/// \brief 获取指定进程名的所有 PID
-/// \param fileName
-/// \return
-///
+/**
+ * @brief Retrieves all process IDs of a given executable name.
+ * @param fileName The name of the executable (e.g., "TabTip.exe").
+ * @return List of process IDs.
+ */
 QList<DWORD> GetProcessIDs(const QString &fileName) {
     QList<DWORD> pids;
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
@@ -88,64 +91,54 @@ const char *WindowClass = "Windows.UI.Core.CoreWindow";
 const char *WindowCaption = "Microsoft Text Input Application";
 } // namespace
 
-///
-/// \brief VirtualKeyboard::OpenScreenKeyboard
-/// \return
-///
-bool VirtualKeyboard::OpenScreenKeyboard() { return OpenTabTip(); }
-///
-/// \brief VirtualKeyboard::OpenOSK
-/// \return
-///
+/**
+ * @brief Opens the screen keyboard (default method).
+ * @return True if successful.
+ */
+bool VirtualKeyboard::OpenScreenKeyboard() {
+    return OpenTabTip();
+}
+
+/**
+ * @brief Opens the traditional OSK (On-Screen Keyboard).
+ * @return True if successful.
+ */
 bool VirtualKeyboard::OpenOSK() {
     PVOID oldValue = nullptr;
-    // 64位系统中32位程序要访问本机system32文件夹，需取消重定向到Syswow64
     BOOL disableSuccess = Wow64DisableWow64FsRedirection(&oldValue);
 
     HINSTANCE result = ShellExecuteA(nullptr, "open", "osk.exe", nullptr, nullptr,
                                      SW_SHOWNORMAL);
     bool success =
-        (reinterpret_cast<INT_PTR>(result) > 32); // ShellExecute 成功返回值 > 32
+        (reinterpret_cast<INT_PTR>(result) > 32); // ShellExecute success returns > 32
 
     if (disableSuccess) {
         Wow64RevertWow64FsRedirection(oldValue);
     }
 
     if (!success) {
-        std::cerr << "Failed to open OSK. Error: " << GetLastError() << std::endl;
+        qDebug() << "Failed to open OSK. Error: " << GetLastError() << "\n";
     }
     return success;
 }
-///
-/// \brief VirtualKeyboard::OpenTabTip
-/// \return
-///
-bool VirtualKeyboard::OpenTabTip() {
-    // 如果键盘已显示，直接成功
-    if (IsWin10KeyboardVisable() || IsWin7KeyboardVisable()) {
-        return true;
-    }
 
+/**
+ * @brief Opens the TabTip touch keyboard (Windows 8+).
+ * @return True if successful.
+ */
+bool VirtualKeyboard::OpenTabTip() {
     QString tabTipPath =
         "C:\\Program Files\\Common Files\\Microsoft Shared\\ink\\TabTip.exe";
     if (!QFile::exists(tabTipPath)) {
         return false;
     }
 
-    // 判断系统版本是否 >= Win10 14393
     if (IsNewVersion()) {
         auto pids = GetProcessIDs("TabTip.exe");
-        // 如果进程未运行，直接启动并返回（启动后不一定立即显示，但调用成功）
         if (pids.isEmpty()) {
             return WShellExecute::syncExecute(tabTipPath);
         }
 
-        // 再次检查可见性（可能启动后已显示）
-        if (IsWin10KeyboardVisable() || IsWin7KeyboardVisable()) {
-            return true;
-        }
-
-        // 使用 COM 接口强制显示键盘
         HRESULT hr = CoInitialize(nullptr);
         if (FAILED(hr)) {
             std::cerr << "CoInitialize failed: 0x" << std::hex << hr << std::endl;
@@ -167,41 +160,14 @@ bool VirtualKeyboard::OpenTabTip() {
 
         CoUninitialize();
         return true;
-    } else {
-        // 低版本系统直接启动进程（如果已运行，会激活窗口）
-        return WShellExecute::syncExecute(tabTipPath);
-    }
-}
-///
-/// \brief VirtualKeyboard::IsWin10KeyboardVisable
-/// \return
-///
-bool VirtualKeyboard::IsWin10KeyboardVisable() {
-    HWND parent = FindWindowExA(nullptr, nullptr, WindowParentClass, nullptr);
-    if (!parent)
+    } else
         return false;
-    HWND wnd = FindWindowExA(parent, nullptr, WindowClass, WindowCaption);
-    return (wnd != nullptr);
 }
-///
-/// \brief VirtualKeyboard::IsWin7KeyboardVisable
-/// \return
-///
-bool VirtualKeyboard::IsWin7KeyboardVisable() {
-    HWND touchWnd = FindWindowA(KeyboardWindowClass, nullptr);
-    if (!touchWnd)
-        return false;
 
-    DWORD style = GetWindowLong(touchWnd, GWL_STYLE);
-    // 根据经验：显示时样式包含 WS_CLIPSIBLINGS、WS_VISIBLE、WS_POPUP，且不包含
-    // WS_DISABLED
-    return (style & WS_CLIPSIBLINGS) && (style & WS_VISIBLE) &&
-           (style & WS_POPUP) && !(style & WS_DISABLED);
-}
-///
-/// \brief VirtualKeyboard::IsNewVersion
-/// \return
-///
+/**
+ * @brief Checks whether the system is a newer Windows version (build >= 14393).
+ * @return True if version >= Windows 10 build 14393 (Anniversary Update).
+ */
 bool VirtualKeyboard::IsNewVersion() {
     HMODULE hMod = GetModuleHandleW(L"ntdll.dll");
     if (!hMod)

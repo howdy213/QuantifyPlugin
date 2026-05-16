@@ -2,24 +2,24 @@
  * @file quantifyhelptwindow.cpp
  * @brief 帮助对话框
  * @author howdy213
- * @date 2026-4-5
- * @version 1.4.0
+ * @date 2026-05-16
+ * @version 2.0.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <QComboBox>
@@ -32,12 +32,13 @@
 #include <QMessageBox>
 #include <QTextBrowser>
 
-#include "WConfig/wconfigdocument.h"
-#include "WECore/WDef/wedef.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/def/wedef.h"
 
 #include "quantifyhelpdialog.h"
 #include "ui_quantifyhelpdialog.h"
 
+using namespace we;
 using namespace we::Consts;
 
 namespace {
@@ -148,7 +149,7 @@ QString wrapHtml(const QString &bodyContent) {
 /// @brief
 /// 量化插件帮助对话框，包含多个标签页，展示插件功能、文件格式、配置说明等
 ///
-QuantifyHelpDialog::QuantifyHelpDialog(WConfigDocument *doc, QWidget *parent)
+QuantifyHelpDialog::QuantifyHelpDialog(WMetaDocument *doc, QWidget *parent)
     : QDialog(parent), ui(new Ui::QuantifyHelpDialog), m_doc(doc) {
     ui->setupUi(this);
     setWindowTitle(tr("量化插件帮助"));
@@ -433,10 +434,10 @@ void QuantifyHelpDialog::setupSecurityTab() {
         </ul>
         <p>加密流程：</p>
         <ul>
-            <li>在“设置”窗口点击“生成密钥对”，选择 U 盘根目录，程序会在该 U 盘生成 <code>Quantify.pem</code> 私钥文件，并在插件目录生成对应的公钥。</li>
+            <li>在“设置”窗口点击“生成密钥对”，选择 U 盘根目录，程序会在该 U 盘生成 <code>Quantify.pem</code> 私钥文件，并在插件目录生成对应的公钥 <code>public.pem</code>。</li>
             <li>将 U 盘插入运行插件的电脑，插件启动时自动读取私钥，即可对新建的记录文件加密。解密文件无需私钥。</li>
             <li>若 U 盘未插入或私钥无效，则无法修改文件。</li>
-            <li>当前公钥文件内置，暂时无法更改，可以在软件包中获取对应的示例密钥。</li>
+            <li><b>自定义公钥</b>：插件启动时会优先加载 <code>Quantify</code> 目录下的 <code>public.pem</code>（如果存在）；若不存在则使用内置默认公钥。因此您可以生成新的密钥对并用新公钥替换该文件，实现密钥更新。</li>
         </ul>
         <p>加密记录文件以 <code>QCRY</code> 魔数开头，无法直接查看内容。</p>
 

@@ -2,44 +2,46 @@
  * @file quantifyhelptwindow.h
  * @brief 帮助对话框
  * @author howdy213
- * @date 2026-4-5
- * @version 1.4.0
+ * @date 2026-05-16
+ * @version 2.0.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifndef QUANTIFYHELPDIALOG_H
 #define QUANTIFYHELPDIALOG_H
-
 #include <QDialog>
-#include <QString>
-#include "WECore/WDef/wedef.h"
 #include <QDir>
+#include <QString>
+
+#include "WECore/def/wedef.h"
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class QuantifyHelpDialog; }
+namespace Ui {
+class QuantifyHelpDialog;
+}
 QT_END_NAMESPACE
 
-class QuantifyHelpDialog : public QDialog
-{
+class QuantifyHelpDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit QuantifyHelpDialog(WConfigDocument *doc, QWidget *parent = nullptr);
+    explicit QuantifyHelpDialog(we::WMetaDocument *doc,
+                                QWidget *parent = nullptr);
     ~QuantifyHelpDialog();
 
 private:
@@ -55,7 +57,7 @@ private:
     void setupAboutTab();
 
     Ui::QuantifyHelpDialog *ui;
-    WConfigDocument *m_doc;
+    we::WMetaDocument *m_doc;
 };
 
 #endif // QUANTIFYHELPDIALOG_H

@@ -1,11 +1,11 @@
 /**
  * @file lightwidget.cpp
- * @brief LightWidget主类实现文件
+ * @brief Implementation file for the LightWidget class.
  * @author howdy213
- * @date 2026-1-31
- * @version 1.2.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright 2025-2026 howdy213
+ * @copyright Copyright 2025-2026 howdy213
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,26 +20,33 @@
  * limitations under the License.
  */
 #include "lightwidget.h"
+#include "WECore/service/wserviceregistry.h"
 #include "lightsystem.h"
 #include "querymaindialog.h"
 
-#include "WECore/WConfig/wconfigdocument.h"
-#include "WECore/WE/we.h"
-#include "WECore/WFile/wpath.h"
-#include "WECore/WPlugin/wplugin.h"
-#include "WECore/WPlugin/wwidgetmanager.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/we/we.h"
+#include "WECore/file/wpath.h"
+#include "WECore/plugin/wplugin.h"
+#include "WECore/widget/wwidgetmanager.h"
 
 #include <QMessageBox>
-using namespace we::Consts;
 
+using namespace we::Consts;
+using namespace we;
+
+/**
+ * @class LightWidgetPrivate
+ * @brief Private implementation class for LightWidget.
+ */
 class LightWidgetPrivate {
 public:
     LightSystem *sys = nullptr;
 };
 
-///
-/// \brief LightWidget::initAllPlugin
-///
+/**
+ * @brief Initializes all plugins.
+ */
 void LightWidget::initAllPlugin() {
     auto manager = WE::inst()->getWEClass()->pluginManager();
     auto plugins = manager->allPluginsInst();
@@ -47,13 +54,14 @@ void LightWidget::initAllPlugin() {
         manager->initPlugin(plugin);
     }
 }
-///
-/// \brief LightWidget::initData
-/// \param data
-///
+
+/**
+ * @brief Initializes the shared data container for the widget system.
+ * @param data Shared pointer to the data container.
+ */
 void LightWidget::initData(QSharedPointer<WEBaseData> data) {
     QVariant config;
-    config.setValue(new WConfigDocument);
+    config.setValue(new WMetaDocument);
     data->addData(Public::Config, config);
 
     QVariant path;
@@ -65,32 +73,39 @@ void LightWidget::initData(QSharedPointer<WEBaseData> data) {
     data->addData(Public::PManager, pluginManager);
 
     QVariant widgetManager;
-    widgetManager.setValue(new WWidgetManager);
+    widgetManager.setValue(new WWidgetManager(this));
     data->addData(Public::WManager, widgetManager);
-};
-///
-/// \brief LightWidget::LightWidget
-///
+
+    QVariant serviceReg;
+    serviceReg.setValue(new WServiceRegistry);
+    data->addData(Public::ServiceRegistry, serviceReg);
+}
+
+/**
+ * @brief Constructs a LightWidget object.
+ */
 LightWidget::LightWidget() : WEBase() {
     d = new LightWidgetPrivate;
     d->sys = new LightSystem;
 }
-///
-/// \brief LightWidget::init
-/// \return
-///
+
+/**
+ * @brief Initializes the LightWidget system.
+ * @return True if initialization succeeded, false otherwise.
+ */
 bool LightWidget::init() {
     auto data = WEBase::getWEBaseData();
     initData(data);
     d->sys->loadAllPlugin();
     return true;
 }
-///
-/// \brief LightWidget::initMainPlugin
-/// \param params
-/// \param defualtWidget
-/// \return
-///
+
+/**
+ * @brief Initializes the main plugin.
+ * @param params Command-line parameters.
+ * @param defualtWidget Path to the default widget plugin.
+ * @return True if the main plugin was successfully initialized.
+ */
 bool LightWidget::initMainPlugin(QStringList params, QString defualtWidget) {
     auto data = WEBase::getWEBaseData();
     auto manager = data->getData<WPluginManager *>(Public::PManager);
@@ -121,7 +136,7 @@ bool LightWidget::initMainPlugin(QStringList params, QString defualtWidget) {
     WPlugin *plugin = manager->getPluginById(id);
     if (!manager->loadPlugin(plugin))
         return false;
-    return manager->initPlugin(plugin, [&params](WMetaData &data) {
+    return manager->initPlugin(plugin, [&params](WMessage &data) {
         data.map.insert(Data::Params, params);
     });
 }

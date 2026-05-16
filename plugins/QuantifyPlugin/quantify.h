@@ -1,30 +1,30 @@
 /**
- * @file classrecord.h
- * @brief 班级记录类
+ * @file quantify.h
+ * @brief 辅助函数
  * @author howdy213
- * @date 2026-3-1
- * @version 1.3.0
+ * @date 2026-05-16
+ * @version 2.0.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifndef QUANTIFY_H
 #define QUANTIFY_H
-#include "WConfig/wconfigdocument.h"
+#include "WECore/metadata/WMetaDocument.h"
 
 class ClassRecord;
 class Encryptor;
@@ -54,7 +54,7 @@ const QString EngineJS = "js";
 
 class QuantifyComponents {
 public:
-    WConfigDocument *config = nullptr;
+    we::WMetaDocument *config = nullptr;
     ClassRecord *classRecord = nullptr;
     Encryptor *encryptor = nullptr;
     Logger *logger = nullptr;
@@ -69,9 +69,9 @@ public:
     QuantifyHelpDialog *helpDialog = nullptr;
 };
 
-QString resolvePath(WConfigDocument *doc, const QString &relativePath);
-QString getConfigDir(WConfigDocument *doc);
-QString resolvePathWithKey(WConfigDocument *doc, const QString &key);
+QString resolvePath(we::WMetaDocument *doc, const QString &relativePath);
+QString getConfigDir(we::WMetaDocument *doc);
+QString resolvePathWithKey(we::WMetaDocument *doc, const QString &key);
 
 } // namespace Quantify
 

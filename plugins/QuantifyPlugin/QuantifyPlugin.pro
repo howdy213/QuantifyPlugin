@@ -19,8 +19,9 @@ win32:CONFIG(release, debug|release): LIBS += -L../../src/release -lwecore
 else:win32:CONFIG(debug, debug|release): LIBS += -L../../src/debug/ -lwecore
 include(../../deps/WECore/WECore.pri)
 include(../../deps/Shared.pri)
+
+INCLUDEPATH +=../../deps/WECore/include
 INCLUDEPATH +=\
-    ../../deps/ \
     "C:\Program Files\OpenSSL-Win64\include"
 
 LIBS += -L"C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
@@ -32,7 +33,6 @@ SOURCES += \
     grouprecord.cpp \
     jsrule.cpp \
     linenumbertextedit.cpp \
-    logger.cpp \
     nativerule.cpp \
     quantify.cpp \
     quantifydialog.cpp \

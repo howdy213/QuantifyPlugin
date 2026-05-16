@@ -1,3 +1,27 @@
+/**
+ * @file encryptor.h
+ * @brief 加密类
+ * @author howdy213
+ * @date 2026-05-16
+ * @version 2.0.0
+ *
+ * Copyright (C) 2025-2026 howdy213
+ *
+ * This file is part of QuantifyPlugin.
+ *
+ * QuantifyPlugin is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * QuantifyPlugin is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 #ifndef ENCRYPTOR_H
 #define ENCRYPTOR_H
 
@@ -7,46 +31,35 @@
 class Encryptor
 {
 public:
-    // 初始化：公钥从资源文件 :/keys/public.pem 加载，私钥路径可选
-    static void init(const QString& privateKeyPath = QString());
-
+    static void init(const QString& privateKeyPath = QString(),
+                     const QString& publicKeyDir = QString());
+    static bool loadPublicKey(const QString& filePath);
     static bool keysMatch();
-    // 加密内存数据（使用私钥），返回加密后的完整数据（包含头部）
     static QByteArray encryptData(const QByteArray& plainData);
-
-    // 解密内存数据（自动识别是否加密），成功返回明文，失败返回空
     static QByteArray decryptData(const QByteArray& encryptedData);
-
-    // 加密文件到文件（使用私钥）
     static bool encryptFile(const QString& inputPath, const QString& outputPath);
-
-    // 解密文件到文件（使用公钥），自动识别是否加密
     static bool decryptFile(const QString& inputPath, const QString& outputPath);
-
-    // 检查数据是否已加密（读取魔数）
     static bool isEncrypted(const QByteArray& data);
     static bool isEncryptedFile(const QString& filePath);
-
-    // 生成密钥对（教师初始化U盘时调用），私钥保存到 privateKeyPath，公钥保存到 publicKeyPath
     static bool generateKeyPair(const QString& privateKeyPath, const QString& publicKeyPath);
-
-    // 批量迁移目录下所有 .record 文件（根据目标模式加密/解密）
     static bool migrateRecordDirectory(const QString& dirPath, bool enableEncryption);
-
-    // 获取当前是否可用（私钥已加载）
     static bool hasPrivateKey();
     static QString getPrivateKeyPath();
+    static QString getPublicKeyPath();
+
 private:
     static bool loadPrivateKey(const QString& path);
     static bool loadPublicKeyFromResource();
+    static bool loadPublicKeyFromFile(const QString& filePath);
     static QByteArray encryptAESKeyWithPrivateKey(const QByteArray& aesKey);
     static QByteArray decryptAESKeyWithPublicKey(const QByteArray& encryptedKey);
     static QByteArray generateAESKey();
 
-    static void* m_privateKey;   // RSA*
-    static void* m_publicKey;    // RSA*
+    static void* m_privateKey;   // EVP_PKEY*
+    static void* m_publicKey;    // EVP_PKEY*
     static bool m_initialized;
     static QString m_privateKeyPath;
+    static QString m_publicKeyPath;
 };
 
 #endif // ENCRYPTOR_H

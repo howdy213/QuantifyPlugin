@@ -1,11 +1,11 @@
 /**
- * @file lightwidget.h
- * @brief 询问并选择MainWidget
+ * @file querymaindialog.h
+ * @brief Header file for the dialog that queries and selects the main widget.
  * @author howdy213
- * @date 2026-1-30
- * @version 1.1.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright 2025-2026 howdy213
+ * @copyright Copyright 2025-2026 howdy213
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,10 @@
 #include <QRadioButton>
 #include <QVBoxLayout>
 
+/**
+ * @class QueryMainDialog
+ * @brief Dialog for selecting a main widget from a list of available widgets.
+ */
 class QueryMainDialog : public QDialog {
     Q_OBJECT
 public:
@@ -38,9 +42,9 @@ public:
     QString selectedWidgetName() const;
 
 private:
-    QButtonGroup *m_btnGroup;
-    QVBoxLayout *m_contentLayout;
-    int m_btnId;
+    QButtonGroup *m_btnGroup;      ///< Group of radio buttons for widget selection.
+    QVBoxLayout *m_contentLayout;  ///< Layout that holds the radio buttons.
+    int m_btnId;                   ///< Next ID to assign to a radio button.
 };
 
 #endif // QUERYMAINDIALOG_H

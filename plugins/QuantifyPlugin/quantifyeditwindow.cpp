@@ -1,25 +1,25 @@
 /**
- * @file classrecord.h
- * @brief 班级记录类
+ * @file quantifyeditwindow.cpp
+ * @brief 编辑窗口实现
  * @author howdy213
- * @date 2026-4-5
- * @version 1.4.0
+ * @date 2026-05-16
+ * @version 2.0.0
  *
  * Copyright (C) 2025-2026 howdy213
  *
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <Windows.h>
@@ -28,10 +28,10 @@
 #include <guiddef.h>
 #include <shlobj.h>
 
-#include "WECore/WConfig/wconfigdocument.h"
-#include "WECore/WFile/wshellexecute.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/file/wshellexecute.h"
 #include "encryptor.h"
-#include "qcryptographichash.h"
+#include <QCryptoGraphicHash>
 #include "qmessagebox.h"
 #include "quantify.h"
 #include "virtualkeyboard.h"
@@ -40,12 +40,14 @@
 #include "quantifyeditwindow.h"
 #include "ui_quantifyeditwindow.h"
 
+using namespace we;
 using namespace we::Consts;
 using namespace Quantify;
 using namespace Quantify::Consts;
+
 ///
-/// \brief QuantifyEditWindow::QuantifyEditWindow
-/// \param parent
+/// \brief 构造函数，初始化界面、字体、信号连接等
+/// \param parent 父窗口
 ///
 QuantifyEditWindow::QuantifyEditWindow(QWidget *parent)
     : QWidget(parent), ui(new Ui::QuantifyEditWindow) {
@@ -67,14 +69,16 @@ QuantifyEditWindow::QuantifyEditWindow(QWidget *parent)
     connect(ui->tabWidget, &QTabWidget::currentChanged, this,
             &QuantifyEditWindow::on_tabWidget_currentChanged);
 }
+
 ///
-/// \brief QuantifyEditWindow::~QuantifyEditWindow
+/// \brief 析构函数
 ///
 QuantifyEditWindow::~QuantifyEditWindow() { delete ui; }
+
 ///
-/// \brief QuantifyEditWindow::initialize
-/// \param components
-/// \param ui
+/// \brief 初始化窗口，设置核心组件与UI引用
+/// \param components 量化组件集合
+/// \param ui 量化UI接口
 ///
 void QuantifyEditWindow::initialize(
     const Quantify::QuantifyComponents &components,
@@ -92,15 +96,17 @@ void QuantifyEditWindow::initialize(
                 &QuantifyEditWindow::onUpdateSecurityInfo);
     }
 }
+
 ///
-/// \brief QuantifyEditWindow::on_comboBox_editTextChanged
-/// \param arg1
+/// \brief 组合框文本变化事件（当前未使用）
+/// \param arg1 新文本
 ///
 void QuantifyEditWindow::on_comboBox_editTextChanged(const QString &arg1) {
     Q_UNUSED(arg1);
 }
+
 ///
-/// \brief QuantifyEditWindow::on_btnTemplate_clicked
+/// \brief 模板按钮点击槽：根据当前类型和引擎加载对应模板文件
 ///
 void QuantifyEditWindow::on_btnTemplate_clicked() {
     QString tempPath = Quantify::resolvePathWithKey(doc, DirTemplate);
@@ -109,7 +115,8 @@ void QuantifyEditWindow::on_btnTemplate_clicked() {
     QString currentType = ui->comboBox->currentText();
 
     if (currentType == DirGroup) {
-        ui->textEdit->setPlainText("name name_ch\nmember");
+        // 分组模板直接写入固定内容
+        replaceTextEditContent("name name_ch\nmember");
         return;
     }
     if (currentType == DirRecord)
@@ -131,10 +138,12 @@ void QuantifyEditWindow::on_btnTemplate_clicked() {
     } else {
         content = QString("无法打开文件：%1").arg(fullPath);
     }
-    ui->textEdit->setPlainText(content);
+    // 使用支持撤销的替换函数
+    replaceTextEditContent(content);
 }
+
 ///
-/// \brief QuantifyEditWindow::on_btnCheck_clicked
+/// \brief 检查按钮点击槽：调用 ClassRecord 的校验接口并更新UI状态
 ///
 void QuantifyEditWindow::on_btnCheck_clicked() {
     if (cr != nullptr) {
@@ -157,8 +166,9 @@ void QuantifyEditWindow::on_btnCheck_clicked() {
         ui->labelCheck->setText("未刷新");
     }
 }
+
 ///
-/// \brief QuantifyEditWindow::on_textEdit_textChanged
+/// \brief 文本编辑框内容变化时重置检查状态
 ///
 void QuantifyEditWindow::on_textEdit_textChanged() {
     if (isChecked) {
@@ -169,8 +179,9 @@ void QuantifyEditWindow::on_textEdit_textChanged() {
         isChecked = false;
     }
 }
+
 ///
-/// \brief QuantifyEditWindow::on_btnSave_clicked
+/// \brief 保存按钮槽：弹出保存对话框，根据配置决定是否加密
 ///
 void QuantifyEditWindow::on_btnSave_clicked() {
     QString ext = getCurrentFileExtension();
@@ -193,8 +204,9 @@ void QuantifyEditWindow::on_btnSave_clicked() {
         return;
     }
 }
+
 ///
-/// \brief QuantifyEditWindow::on_btnOpen_clicked
+/// \brief 打开按钮槽：弹出打开对话框，读取并解密文件
 ///
 void QuantifyEditWindow::on_btnOpen_clicked() {
     QString path = getCurrentDirectoryPath();
@@ -212,12 +224,14 @@ void QuantifyEditWindow::on_btnOpen_clicked() {
     if (content.isNull())
         return; // 错误已提示
 
-    ui->textEdit->setPlainText(content);
+    // 使用支持撤销的替换函数加载内容
+    replaceTextEditContent(content);
     QFileInfo info(savePath);
     ui->nameEdit->setText(info.baseName());
 }
+
 ///
-/// \brief QuantifyEditWindow::on_btnClear_clicked
+/// \brief 清空按钮槽：删除 textEdit 全部文本（已支持撤销）
 ///
 void QuantifyEditWindow::on_btnClear_clicked() {
     QTextCursor cursor = ui->textEdit->textCursor();
@@ -226,8 +240,9 @@ void QuantifyEditWindow::on_btnClear_clicked() {
     cursor.deleteChar();
     cursor.endEditBlock();
 }
+
 ///
-/// \brief QuantifyEditWindow::on_addonButton_clicked
+/// \brief 打开插件目录按钮
 ///
 void QuantifyEditWindow::on_addonButton_clicked() {
     if (doc) {
@@ -235,12 +250,18 @@ void QuantifyEditWindow::on_addonButton_clicked() {
         WShellExecute::syncExecute(addonPath);
     }
 }
+
 ///
-/// \brief QuantifyEditWindow::on_keyboardButton_clicked
+/// \brief 打开软键盘按钮
 ///
 void QuantifyEditWindow::on_keyboardButton_clicked() {
     VirtualKeyboard().OpenScreenKeyboard();
 }
+
+///
+/// \brief 获取当前类型对应的文件扩展名（含点）
+/// \return 扩展名字符串，如 ".rule"
+///
 QString QuantifyEditWindow::getCurrentFileExtension() const {
     QString type = ui->comboBox->currentText();
     if (type == "rule")
@@ -252,6 +273,10 @@ QString QuantifyEditWindow::getCurrentFileExtension() const {
     return "";
 }
 
+///
+/// \brief 获取当前类型的文件过滤器字符串
+/// \return 用于 QFileDialog 的过滤器
+///
 QString QuantifyEditWindow::getCurrentFileFilter() const {
     QString ext = getCurrentFileExtension();
     if (ext == ".rule")
@@ -263,6 +288,10 @@ QString QuantifyEditWindow::getCurrentFileFilter() const {
     return "";
 }
 
+///
+/// \brief 获取当前类型的默认目录路径
+/// \return 例如 "basepath/record/"
+///
 QString QuantifyEditWindow::getCurrentDirectoryPath() const {
     if (!doc)
         return "";
@@ -275,7 +304,12 @@ QString QuantifyEditWindow::getCurrentDirectoryPath() const {
     return base + "/" + subDir + "/";
 }
 
-// 读取文件（自动解密记录文件）
+///
+/// \brief 读取文件内容，若为记录文件且已加密则自动解密
+/// \param filePath 文件完整路径
+/// \param isRecord 是否为记录文件
+/// \return 文件内容的 UTF-8 字符串，失败时返回空 QString
+///
 QString QuantifyEditWindow::readFileWithDecryption(const QString &filePath,
                                                    bool isRecord) const {
     QFile file(filePath);
@@ -308,7 +342,13 @@ QString QuantifyEditWindow::readFileWithDecryption(const QString &filePath,
     }
 }
 
-// 保存文件（记录文件按配置决定是否加密）
+///
+/// \brief 保存文件，根据配置和类型决定是否加密
+/// \param filePath 保存路径
+/// \param content 文本内容
+/// \param isRecord 是否为记录文件
+/// \return 保存成功返回 true
+///
 bool QuantifyEditWindow::writeFileWithEncryption(const QString &filePath,
                                                  const QString &content,
                                                  bool isRecord) const {
@@ -341,6 +381,10 @@ bool QuantifyEditWindow::writeFileWithEncryption(const QString &filePath,
     file.close();
     return true;
 }
+
+///
+/// \brief 从 ClassRecord 加载学生姓名列表并生成按钮网格
+///
 void QuantifyEditWindow::loadNamelistButtons() {
     // 清除旧布局
     QLayout *oldLayout = ui->namelistWidget->layout();
@@ -386,6 +430,9 @@ void QuantifyEditWindow::loadNamelistButtons() {
     }
 }
 
+///
+/// \brief 姓名按钮点击槽：在光标位置插入学生英文名并换行
+///
 void QuantifyEditWindow::onNamelistButtonClicked() {
     QPushButton *btn = qobject_cast<QPushButton *>(sender());
     if (!btn)
@@ -396,15 +443,25 @@ void QuantifyEditWindow::onNamelistButtonClicked() {
         return;
 
     QTextCursor cursor = ui->textEdit->textCursor();
+    cursor.beginEditBlock();                // 将整次插入封装为一个撤销单元
     cursor.insertText(engName + "\n");
+    cursor.endEditBlock();
     ui->textEdit->setTextCursor(cursor);
 }
 
+///
+/// \brief 日历点击槽：将选中日期格式化为名称建议
+/// \param date 选中的日期
+///
 void QuantifyEditWindow::on_calendarWidget_clicked(const QDate &date) {
     QString dateStr = date.toString("yyyyMMdd") + "-";
     ui->nameEdit->setText(dateStr);
 }
 
+///
+/// \brief 统计各日期下的记录文件数量
+/// \return 日期到文件计数的映射
+///
 QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
     QMap<QDate, int> countMap;
     if (!doc)
@@ -431,6 +488,9 @@ QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
     return countMap;
 }
 
+///
+/// \brief 更新安全信息标签：显示文件哈希、最后修改时间、加密比例
+///
 void QuantifyEditWindow::updateSecurityInfo() {
     QString recordDir =
         Quantify::resolvePathWithKey(doc, DirPath) + "/record";
@@ -465,12 +525,15 @@ void QuantifyEditWindow::updateSecurityInfo() {
 
     QString securityText =
         QString("%1 %2 %3 %4/%5 ")
-                               .arg(hashHex, timeStr, lastModifiedFile.split('/').last()).arg(encryptedFiles).arg(totalFiles);
+            .arg(hashHex, timeStr, lastModifiedFile.split('/').last()).arg(encryptedFiles).arg(totalFiles);
     if (ui->labelSecurity) {
         ui->labelSecurity->setText(securityText);
     }
 }
 
+///
+/// \brief 更新日历颜色：根据记录文件数量标记背景色
+///
 void QuantifyEditWindow::updateCalendarColors() {
     QMap<QDate, int> counts = countRecordFiles();
 
@@ -493,6 +556,10 @@ void QuantifyEditWindow::updateCalendarColors() {
     }
 }
 
+///
+/// \brief 日历激活槽：双击日期时加载当天第一个记录文件内容
+/// \param date 激活的日期
+///
 void QuantifyEditWindow::on_calendarWidget_activated(const QDate &date) {
     if (!doc)
         return;
@@ -516,11 +583,20 @@ void QuantifyEditWindow::on_calendarWidget_activated(const QDate &date) {
     if (content.isNull())
         return;
 
-    ui->textEdit->setPlainText(content);
+    // 支持撤销的文本替换
+    replaceTextEditContent(content);
     ui->nameEdit->setText(files.first().baseName());
 }
 
+///
+/// \brief 外部通知的安全信息更新槽
+///
 void QuantifyEditWindow::onUpdateSecurityInfo() { updateSecurityInfo(); }
+
+///
+/// \brief 标签页切换槽：根据页面更新日历颜色或姓名列表
+/// \param index 当前页索引
+///
 void QuantifyEditWindow::on_tabWidget_currentChanged(int index) {
     QWidget *current = ui->tabWidget->widget(index);
     if (current == ui->tabCalendar) {
@@ -528,4 +604,18 @@ void QuantifyEditWindow::on_tabWidget_currentChanged(int index) {
     } else if (current == ui->tabNameList) {
         loadNamelistButtons();
     }
+}
+
+///
+/// \brief 替换 textEdit 全部内容，并保留撤销/重做历史
+/// \param text 要设置的新文本
+///
+void QuantifyEditWindow::replaceTextEditContent(const QString &text) {
+    QTextCursor cursor = ui->textEdit->textCursor();
+    cursor.beginEditBlock();               // 开始一个编辑块
+    cursor.select(QTextCursor::Document);  // 选中全部文本
+    cursor.insertText(text);               // 插入新文本，自动覆盖选区
+    cursor.endEditBlock();                 // 结束编辑块，形成单次撤销操作
+    cursor.movePosition(QTextCursor::Start);
+    ui->textEdit->setTextCursor(cursor);
 }

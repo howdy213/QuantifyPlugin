@@ -10,10 +10,11 @@ QuantifyPlugin 是一个用于学生日常行为量化评分的插件。它支�
   - **原生语法**：简洁的条件-动作表达式，适合常规量化场景。
   - **JavaScript 引擎**：提供完整的编程能力，可实现复杂逻辑（如分段扣分、复杂条件判断等）。
 - **记录文件导入**：通过简单文本格式记录每次量化事件（迟到、表扬等），支持注释、组排除语法等。
-- **直观的展示界面**：表格形式展示所有学生的每周评分和总分，支持排序、导出 Excel、双击查看详情。
+- **文件编辑器**：内置语法验证，错误提示，模板创建、快速录入等功能。
+- **直观的展示界面**：表格形式展示所有学生的每周评分和总分，支持排序、平均计算、导出 Excel、双击查看详情。
 - **配置文件驱动**：所有路径、引擎类型等均可通过 `config.json` 灵活配置。
 - **示例一键生成**：内置“新建示例”功能，快速生成完整目录结构和示例文件，方便上手。
-- **安全**：允许选择加密来阻止他人编辑，提供简短安全标识判断文件是否被篡改
+- **安全**：允许选择加密来阻止他人编辑，提供简短安全标识判断文件是否被篡改。
 
 ## 安装与配置
 
@@ -49,7 +50,7 @@ Quantify/
     "path": "./term1",                 // 规则/记录/组文件所在目录（相对 config.json 或绝对路径）
     "addon": "./addon",                // 附加程序路径（点击“工具”按钮时执行）
     "engine": "native",                // 规则引擎类型：native 或 js
-    "template": "./template"           // 模板文件目录
+    "template": "./template",          // 模板文件目录
     "encryption": true                 // 加密
 }
 ```
@@ -66,6 +67,15 @@ Quantify/
 - [WECore](https://github.com/howdy213/WECore)：WidgetExplorer插件核心库
 - [WidgetExplorer](https://github.com/howdy213/WidgetExplorer)
 - [QXlsx](https://github.com/QtExcel/QXlsx)：Qt Xlsx格式读写库
+- [OpenSSL](https://github.com/openssl/openssl): 加密库
 
 ## 许可证
-本项目采用 GPLv3许可证，详情参见 [LICENSE](LICENSE) 文件。
+本项目采用 LGPLv3许可证，详情参见 [LICENSE](LICENSE) 文件。
+
+WECore: [Apache-2.0 license](licenses/LICENSE-WECore)
+
+WidgetExplorer: [Apache-2.0 license](licenses/LICENSE-WidgetExplorer)
+
+QXlsx: [MIT License](licenses/LICENSE-QXlsx)
+
+OpenSSL: [Apache-2.0 license](LICENSE-OpenSSL)

@@ -10,16 +10,16 @@
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifndef QUANTIFYSETTINGWINDOW_H
@@ -31,7 +31,7 @@
 #include <QInputDialog>
 #include <QMessageBox>
 
-#include "WConfig/wconfigdocument.h"
+#include "WECore/metadata/WMetaDocument.h"
 #include "encryptor.h"
 #include "quantify.h"
 
@@ -76,7 +76,7 @@ private:
     bool createConfigFile(const QString &configPath, const QDir &baseDir,
                           const QString &termDirName, const QString &engineType);
 
-    WConfigDocument *m_doc = nullptr;
+    we::WMetaDocument *m_doc = nullptr;
     Ui::QuantifySettingWindow *ui;
 };
 

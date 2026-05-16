@@ -10,16 +10,16 @@
  * This file is part of QuantifyPlugin.
  *
  * QuantifyPlugin is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
+ * it under the terms of the GNU Lesser General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
  * QuantifyPlugin is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License
+ * You should have received a copy of the GNU Lesser General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "quantifysettingwindow.h"
@@ -27,11 +27,11 @@
 #include "ui_quantifysettingwindow.h"
 
 #include "QXlsx.h"
-#include "WConfig/wconfigdocument.h"
-#include "WFile/wpath.h"
-#include "WFile/wshellexecute.h"
-#include "WPlugin/wplugin.h"
-#include "WPlugin/wplugindata.h"
+#include "WECore/metadata/WMetaDocument.h"
+#include "WECore/file/wpath.h"
+#include "WECore/file/wshellexecute.h"
+#include "WECore/plugin/wplugin.h"
+#include "WECore/plugin/wplugindata.h"
 #include "logger.h"
 
 #include <QComboBox>
@@ -42,7 +42,8 @@
 #include <QRegularExpression>
 #include <QVBoxLayout>
 
-using namespace Consts;
+using namespace we;
+using namespace we::Consts;
 using namespace Quantify;
 using namespace Quantify::Consts;
 
@@ -335,7 +336,6 @@ void QuantifySettingWindow::on_btnSaveSettings_clicked() {
 }
 
 void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
-    // 查找可用的U盘（或让用户选择路径）
     QFileInfoList drives = QDir::drives();
     QString selectedDrive;
     if (drives.isEmpty()) {
@@ -351,33 +351,72 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
         bool ok;
         selectedDrive =
             QInputDialog::getItem(this, tr("选择U盘"), tr("请选择要保存私钥的U盘:"),
-                                              driveNames, 0, false, &ok);
+                                  driveNames, 0, false, &ok);
         if (!ok || selectedDrive.isEmpty())
             return;
     }
 
-    QString privateKeyPath = QDir(selectedDrive).filePath("Quantify.pem");
-    QString publicKeyPath = QDir(getConfigDir(m_doc)).filePath("public.pem");
+    const QString privateKeyPath = QDir(selectedDrive).filePath("Quantify.pem");
+    const QString publicKeyOnDrive  = QDir(selectedDrive).filePath("Quantify.pub");
+    const QString publicKeyInConfig = QDir(getConfigDir(m_doc)).filePath("public.pem");
 
-    if (QFile::exists(privateKeyPath)) {
-        int ret = QMessageBox::question(
-            this, tr("私钥已存在"), tr("U盘根目录已存在 Quantify.pem，是否覆盖？"),
-            QMessageBox::Yes | QMessageBox::No);
+    const bool encryptionEnabled = ui->checkEncrypt->isChecked();
+    if (encryptionEnabled && QFile::exists(publicKeyInConfig)) {
+        QMessageBox::warning(
+            this, tr("操作禁止"),
+            tr("当前已启用加密模式，无法重新生成密钥对。\n"
+               "请先关闭“加密记录文件”选项后再试。"));
+        return;
+    }
+
+    QStringList existingFiles;
+    if (QFile::exists(privateKeyPath))
+        existingFiles << tr("U盘私钥: %1").arg(privateKeyPath);
+    if (QFile::exists(publicKeyOnDrive))
+        existingFiles << tr("U盘公钥: %1").arg(publicKeyOnDrive);
+    if (QFile::exists(publicKeyInConfig))
+        existingFiles << tr("配置公钥: %1").arg(publicKeyInConfig);
+
+    if (!existingFiles.isEmpty()) {
+        QString msg = tr("以下文件已存在，是否覆盖？\n\n%1")
+                          .arg(existingFiles.join('\n'));
+        int ret = QMessageBox::question(this, tr("确认覆盖"), msg,
+                                        QMessageBox::Yes | QMessageBox::No);
         if (ret != QMessageBox::Yes)
             return;
     }
 
-    if (!Encryptor::generateKeyPair(privateKeyPath, publicKeyPath)) {
+    if (!Encryptor::generateKeyPair(privateKeyPath, publicKeyInConfig)) {
         QMessageBox::critical(this, tr("错误"),
                               tr("生成密钥对失败，请检查U盘是否可写。"));
         return;
     }
 
+    if (QFile::exists(publicKeyOnDrive)) {
+        if (!QFile::remove(publicKeyOnDrive)) {
+            QMessageBox::warning(this, tr("部分成功"),
+                                 tr("无法删除 U 盘上的旧公钥（%1），复制公钥失败。\n"
+                                    "请手动将 %2 复制到 U 盘根目录。")
+                                     .arg(publicKeyOnDrive, publicKeyInConfig));
+            return;
+        }
+    }
+    if (!QFile::copy(publicKeyInConfig, publicKeyOnDrive)) {
+        QMessageBox::warning(this, tr("部分成功"),
+                             tr("密钥对已生成，但无法将公钥复制到 U 盘（%1）。\n"
+                                "请手动将 %2 复制到 U 盘根目录。")
+                                 .arg(publicKeyOnDrive, publicKeyInConfig));
+    }
+
     QMessageBox::information(
         this, tr("成功"),
-        tr("密钥对已生成！\n私钥保存至：%1\n公钥保存至：%2\n\n"
+        tr("密钥对已生成！\n"
+           "私钥: %1\n"
+           "公钥(U盘备份): %2\n"
+           "公钥(插件目录): %3\n\n"
            "请将公钥文件分发给需要使用解密功能的人员。")
-            .arg(privateKeyPath, publicKeyPath));
+            .arg(privateKeyPath, publicKeyOnDrive, publicKeyInConfig));
+
     updatePrivateKeyStatus();
 }
 

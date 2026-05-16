@@ -1,6 +1,6 @@
 /**
- * @file lightsystem.h
- * @brief Header file for the lightweight plugin loading system.
+ * @file iLightMain.h
+ * @brief Defines constant namespaces for event and key identifiers used in the main application interface.
  * @author howdy213
  * @date 2026-05-04
  * @version 2.0.0
@@ -19,30 +19,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef LIGHTSYSTEM_H
-#define LIGHTSYSTEM_H
-#include "WECore/def/wedef.h"
 
-#include <QString>
+#ifndef ILIGHTMAIN_H
+#define ILIGHTMAIN_H
 
-class LightSystemPrivate;
+namespace LightWidget {
+namespace Consts {
+namespace Event {
+constexpr auto MenuAction = "MenuAction";
+constexpr auto ToolAction = "ToolAction";
+constexpr auto Tab = "Tab";
+} // namespace Event
 
-namespace we {
-/**
- * @class LightSystem
- * @brief Loads and manages plugins for the lightweight system.
- */
-class LightSystem {
-public:
-    LightSystem();
-    virtual ~LightSystem();
-    void loadAllPlugin();
-    void loadPlugin(QString jsonPath, QString config);
-    void loadSinglePlugin(QString jsonPath, WMetaDocument *doc);
+namespace Key {
+constexpr auto MenuPath = "menuPath";
+constexpr auto TabTitle = "title";
+} // namespace Key
+} // namespace Consts
+} // namespace LightWidget
 
-private:
-    LightSystemPrivate *d = nullptr;
-};
-} // namespace we
-
-#endif // LIGHTSYSTEM_H
+#endif // ILIGHTMAIN_H

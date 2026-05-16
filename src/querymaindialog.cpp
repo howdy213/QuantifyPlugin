@@ -1,11 +1,11 @@
 /**
- * @file lightwidget.cpp
- * @brief 询问并选择MainWidget
+ * @file querymaindialog.cpp
+ * @brief Implementation file for the main widget selection dialog.
  * @author howdy213
- * @date 2026-1-30
- * @version 1.1.0
+ * @date 2026-05-04
+ * @version 2.0.0
  *
- * Copyright 2025-2026 howdy213
+ * @copyright Copyright 2025-2026 howdy213
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@
  */
 #include "querymaindialog.h"
 
-///
-/// \brief QueryMainDialog::QueryMainDialog
-/// \param parent
-///
+/**
+ * @brief Constructs the selection dialog.
+ * @param parent The parent widget.
+ */
 QueryMainDialog::QueryMainDialog(QWidget *parent)
     : QDialog(parent), m_btnGroup(new QButtonGroup(this)), m_btnId(0) {
     setWindowTitle("选择MainWidget");
@@ -55,10 +55,11 @@ QueryMainDialog::QueryMainDialog(QWidget *parent)
 
     m_btnGroup->setExclusive(true);
 }
-///
-/// \brief QueryMainDialog::addMainWidget
-/// \param name
-///
+
+/**
+ * @brief Adds a main widget option to the dialog.
+ * @param name The name of the widget to be displayed.
+ */
 void QueryMainDialog::addMainWidget(const QString &name) {
     if (name.isEmpty())
         return;
@@ -71,17 +72,19 @@ void QueryMainDialog::addMainWidget(const QString &name) {
 
     adjustSize();
 }
-///
-/// \brief QueryMainDialog::hasSelectedWidget
-/// \return
-///
+
+/**
+ * @brief Returns whether a widget has been selected.
+ * @return True if a radio button is checked, false otherwise.
+ */
 bool QueryMainDialog::hasSelectedWidget() const {
     return m_btnGroup->checkedId() != -1;
 }
-///
-/// \brief QueryMainDialog::selectedWidgetName
-/// \return
-///
+
+/**
+ * @brief Returns the name of the selected widget.
+ * @return The widget name, or an empty string if none selected.
+ */
 QString QueryMainDialog::selectedWidgetName() const {
     QAbstractButton *checkedBtn = m_btnGroup->checkedButton();
     if (!checkedBtn) {
