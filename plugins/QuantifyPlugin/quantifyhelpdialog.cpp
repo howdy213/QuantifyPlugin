@@ -156,6 +156,7 @@ QuantifyHelpDialog::QuantifyHelpDialog(WMetaDocument *doc, QWidget *parent)
     resize(700, 500);
 
     setupIntroTab();
+    setupQuickStartTab();
     setupQuantifyTab();
     setupRecordTab();
     setupRuleTab();
@@ -187,6 +188,69 @@ void QuantifyHelpDialog::setupIntroTab() {
             <li>可自定义量化规则（原生语法或 JS）</li>
             <li>记录查看、筛选、导出 Excel</li>
             <li>配置文件灵活设置路径和引擎类型</li>
+        </ul>
+    )";
+    browser->setHtml(wrapHtml(content));
+}
+///
+/// \brief QuantifyHelpDialog::setupQuickStartTab
+///
+void QuantifyHelpDialog::setupQuickStartTab() {
+    QTextBrowser *browser = findChild<QTextBrowser *>("textBrowserQuickStart");
+    if (!browser)
+        return;
+
+    QString content = R"(
+        <h2>快速入门</h2>
+        <p>本指南将帮助你快速上手量化插件。请按照以下步骤操作，即可在几分钟内看到量化评分结果。</p>
+
+        <h3>1. 创建示例数据</h3>
+        <p>点击主界面的 <b>设置</b> 按钮，选择 <b>新建配置</b>。程序会要求你选择规则引擎类型：</p>
+        <ul>
+            <li><b>native</b>（原生语法）：适合简单规则，推荐初学者使用。</li>
+            <li><b>js</b>（JavaScript）：适合复杂计算，需要一定编程基础。</li>
+        </ul>
+        <p>选择后程序会自动在插件目录下生成 <code>Quantify/config.json</code> 配置文件以及示例的 <code>rule</code>、<code>record</code> 等空文件夹。你可以直接使用示例数据继续体验。</p>
+
+        <h3>2. 添加学生名单</h3>
+        <p>在设置窗口中点击 <b>名单 - 打开</b>，程序会尝试打开数据目录下的 <code>namelist.xlsx</code> 文件。若文件不存在，可以用 Excel 新建一个，格式要求：</p>
+        <ul>
+            <li><b>第一列</b>：学生缩写（英文字母或数字，不能包含<code>-</code>符号），如 <code>zs</code></li>
+            <li><b>第二列</b>：学生中文名，如 <code>张三</code></li>
+        </ul>
+        <p>保存并关闭 Excel 后，回到<b>查看 - 刷新</b>插件会自动读取名单。</p>
+
+        <h3>3. 添加量化规则</h3>
+        <p>切换到 <b>编辑</b> 标签页，在顶部的文件类型下拉框中选择 <b>rule</b>，然后在旁边的输入框中输入规则名（英文，例如 <code>late</code>），点击右侧的 <b>新建/打开</b> 按钮。</p>
+        <p>如果你不熟悉规则语法，可以点击 <b>模板</b> 按钮快速填入示例。
+        <p>编辑完成后，点击 <b>检查</b> 验证语法，确认无误后点击 <b>保存</b>。至此规则就配置好了。</p>
+
+        <h3>4. 添加量化记录</h3>
+        <p>同样在 <b>编辑</b> 标签页，将文件类型下拉框切换为 <b>record</b>。文件名建议遵循 <code>日期-序号</code> 的格式，例如 <code>20260531-1</code>（表示 2026 年 5 月 31 日的第一条记录）。点击 <b>新建/打开</b>。</p>
+        <p>记录文件内容由三部分组成：</p>
+        <ul>
+            <li><b>第一行</b>：记录类型（daily / weekly / termly）</li>
+            <li><b>规则块</b>：以 <code>[规则英文名]</code> 开头，下方每行为 学生缩写 分数 备注（备注可选）</li>
+            <li>支持行内注释 <code>//</code></li>
+        </ul>
+        <p>同样地，编辑后先 <b>检查</b> 再 <b>保存</b>。</p>
+        <p><b>注意：</b>每过一周，你需要手动创建一个 <code>weekly</code> 类型的记录文件（文件名仍用日期，内容示例：<code>weekly\n[late]\nALL</code>），程序才能正确结算上周分数并开启新的一周，这允许不规则的周。可以在周六、周日创建。</p>
+
+        <h3>5. （可选）添加小组</h3>
+        <p>如果需要按小组批量操作，可以在编辑页面新建 <b>group</b> 类型文件。格式为：</p>
+        <pre>组名 中文名
+学生缩写1
+学生缩写2
+...</pre>
+        <p>之后在记录文件中就可以使用组名作为目标。</p>
+
+        <h3>6. 查看量化结果</h3>
+        <p>完成以上步骤后，回到 <b>查看</b> 标签页，点击 <b>刷新</b> 按钮。表格会显示所有学生的每周得分和总分。双击某个分数单元格还可以查看该学生的详细记录。</p>
+
+        <h3>常见问题与提示</h3>
+        <ul>
+            <li><b>记录文件加密？</b> 详见“安全设置”标签页。</li>
+            <li><b>修改引擎类型？</b> 直接修改 <code>config.json</code> 中的 <code>engine</code> 值并重启插件即可，但请注意不同引擎的规则文件格式完全不同，需要重新编写规则。</li>
         </ul>
     )";
     browser->setHtml(wrapHtml(content));
@@ -516,9 +580,9 @@ void QuantifyHelpDialog::setupAboutTab() {
     browser->setOpenExternalLinks(true);
     QString content = R"(
         <h2>量化插件 QuantifyPlugin</h2>
-        <p><b>版本：</b>1.5.0</p>
+        <p><b>版本：</b>2.0.0</p>
         <p><b>作者：</b>howdy213</p>
-        <p><b>日期：</b>2026-04-18</p>
+        <p><b>日期：</b>2026-05-31</p>
         <p><b>许可证：</b>GNU General Public License v3.0</p>
         <p>本插件用于学生日常行为量化评分，支持多种规则引擎，提供直观的显示和编辑界面。</p>
         <p>更多信息请参阅 <a href='https://github.com/howdy213/QuantifyPlugin'>GitHub 仓库</a>。</p>

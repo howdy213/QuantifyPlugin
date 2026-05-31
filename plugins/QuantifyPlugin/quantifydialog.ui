@@ -26,7 +26,7 @@
   <customwidget>
    <class>SideBar</class>
    <extends>QWidget</extends>
-   <header>sidebar.h</header>
+   <header>WECore/utils/sidebar.h</header>
    <container>1</container>
   </customwidget>
   <customwidget>

@@ -18,7 +18,7 @@ win32 {
 win32:CONFIG(release, debug|release): LIBS += -L../../src/release -lwecore
 else:win32:CONFIG(debug, debug|release): LIBS += -L../../src/debug/ -lwecore
 include(../../deps/WECore/WECore.pri)
-include(../../deps/Shared.pri)
+include(../../deps/QXlsx/QXlsx.pri)
 
 INCLUDEPATH +=../../deps/WECore/include
 INCLUDEPATH +=\

@@ -47,6 +47,7 @@ public:
 private:
     // 初始化各个标签页
     void setupIntroTab();
+    void setupQuickStartTab();
     void setupQuantifyTab();
     void setupRecordTab();
     void setupRuleTab();
