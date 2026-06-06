@@ -211,7 +211,7 @@ void QuantifyHelpDialog::setupQuickStartTab() {
             <li><b>js</b>（JavaScript）：适合复杂计算，需要一定编程基础。</li>
         </ul>
         <p>选择后程序会自动在插件目录下生成 <code>Quantify/config.json</code> 配置文件以及示例的 <code>rule</code>、<code>record</code> 等空文件夹。你可以直接使用示例数据继续体验。</p>
-
+        <p>也可以导入更完整的示例数据以看到最终效果</p>
         <h3>2. 添加学生名单</h3>
         <p>在设置窗口中点击 <b>名单 - 打开</b>，程序会尝试打开数据目录下的 <code>namelist.xlsx</code> 文件。若文件不存在，可以用 Excel 新建一个，格式要求：</p>
         <ul>
@@ -250,7 +250,7 @@ void QuantifyHelpDialog::setupQuickStartTab() {
         <h3>常见问题与提示</h3>
         <ul>
             <li><b>记录文件加密？</b> 详见“安全设置”标签页。</li>
-            <li><b>修改引擎类型？</b> 直接修改 <code>config.json</code> 中的 <code>engine</code> 值并重启插件即可，但请注意不同引擎的规则文件格式完全不同，需要重新编写规则。</li>
+            <li><b>修改引擎类型？</b> 请注意不同引擎的规则文件格式完全不同，需要重新编写规则。</li>
         </ul>
     )";
     browser->setHtml(wrapHtml(content));

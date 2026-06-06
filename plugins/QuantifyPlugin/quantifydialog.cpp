@@ -28,6 +28,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <mutex>
 
 #include "WECore/metadata/WMetaDocument.h"
 #include "WECore/def/wedef.h"
@@ -50,6 +51,7 @@ using namespace we;
 using namespace we::Consts;
 using namespace Quantify;
 using namespace Quantify::Consts;
+static std::once_flag opensslInitFlag;
 
 class QuantifyDialogPrivate {
 public:
@@ -60,10 +62,7 @@ public:
     Quantify::QuantifyComponents *m_components = nullptr;
     Quantify::QuantifyUI *m_ui = nullptr;
 };
-///
-/// \brief QuantifyDialog::QuantifyDialog
-/// \param parent
-///
+
 QuantifyDialog::QuantifyDialog(QWidget *parent)
     : QWidget(parent), d_ptr(new QuantifyDialogPrivate) {
     Q_D(QuantifyDialog);
@@ -109,18 +108,21 @@ QuantifyDialog::QuantifyDialog(QWidget *parent)
 
     setMaximumSize(1300, 650);
     setMinimumSize(1000, 500);
+
+    connect(d->m_ui->settingWindow, &QuantifySettingWindow::requestDialogRestart,
+            this, &QuantifyDialog::onRequestDialogRestart);
+    connect(d->m_ui->settingWindow, &QuantifySettingWindow::settingsChanged,
+            this, &QuantifyDialog::onSettingsChanged);
+    connect(d->m_ui->settingWindow, &QuantifySettingWindow::unsavedChangesChanged,
+            this, &QuantifyDialog::onSettingUnsavedChanged);
+    d->ui->sideBar->setEnabled(true);
 }
-///
-/// \brief QuantifyDialog::~QuantifyDialog
-///
+
 QuantifyDialog::~QuantifyDialog() {
     Q_D(QuantifyDialog);
     delete d->ui;
 }
-///
-/// \brief QuantifyDialog::readConfig
-/// \return
-///
+
 bool QuantifyDialog::readConfig() {
     Q_D(QuantifyDialog);
     d_func();
@@ -137,6 +139,7 @@ bool QuantifyDialog::readConfig() {
 
     QFileInfo configFileInfo(configPath);
     QString configDir = configFileInfo.absolutePath();
+
     d->m_components->config->set(DirRoot, configDir);
 
     QString path = d->m_components->config->get(DirPath).toString();
@@ -152,16 +155,27 @@ bool QuantifyDialog::readConfig() {
         }
         return QString();
     };
+
+    std::call_once(opensslInitFlag, []() { Encryptor::init(); });
+
+    // 加载公钥（优先配置目录，否则内置）
+    if (!Encryptor::loadPublicKeyWithFallback(configDir)) {
+        Logger::instance().warn("公钥加载失败，解密功能将不可用");
+    }
+
+    // 查找私钥
     QString privateKeyPath = findPrivateKey();
-    Encryptor::init(privateKeyPath,configDir);
     if (!privateKeyPath.isEmpty()) {
-        if (!Encryptor::keysMatch()) {
-            Encryptor::init("");
-            QString errMsg = "公私钥不匹配：" + privateKeyPath;
-            Logger::instance().error(errMsg);
-            QMessageBox::critical(this, "错误", errMsg);
+        if (!Encryptor::loadPrivateKey(privateKeyPath)) {
+            Logger::instance().error("私钥加载失败: " + privateKeyPath);
+        } else if (!Encryptor::keysMatch()) {
+            Encryptor::clearPrivateKey();  // 清除不匹配的密钥
+            m_keyMismatchError = "公私钥不匹配：" + privateKeyPath;
+            Logger::instance().error(m_keyMismatchError);
+            // 延迟到 showEvent 显示，避免构造函数中弹窗导致崩溃
         }
     }
+
     if (path.isEmpty()) {
         QMessageBox::information(this, "提示", "无路径！将使用默认路径");
         path = "./term1";
@@ -180,22 +194,70 @@ bool QuantifyDialog::readConfig() {
 
     return true;
 }
-///
-/// \brief QuantifyDialog::setPlugin
-/// \param plugin
-///
+
 void QuantifyDialog::setPlugin(QuantifyPlugin *plugin) {
     Q_D(QuantifyDialog);
     d->plugin = plugin;
 }
-///
-/// \brief QuantifyDialog::closeEvent
-/// \param event
-///
+
+void QuantifyDialog::onSettingsChanged()
+{
+    rebuildClassRecord();
+}
+
+void QuantifyDialog::onSettingUnsavedChanged(bool hasUnsaved) {
+    Q_D(QuantifyDialog);
+    if (d->ui && d->ui->sideBar) {
+        d->ui->sideBar->setEnabled(!hasUnsaved);
+    }
+}
+
+void QuantifyDialog::rebuildClassRecord() {
+    Q_D(QuantifyDialog);
+    // 1. 删除旧的 ClassRecord
+    delete d->m_components->classRecord;
+    QString dataPath = resolvePathWithKey(d->m_components->config, DirPath);
+    RuleEngine engine = (d->m_components->config->get(VarEngine).toString() == EngineJS)
+                            ? RuleEngine::JS : RuleEngine::Native;
+    // 3. 创建新的 ClassRecord
+    d->m_components->classRecord = new ClassRecord(dataPath, engine);
+    // 4. 通知所有依赖的子窗口更新指针
+    d->m_ui->displayWindow->setClassRecord(d->m_components->classRecord);
+    d->m_ui->editWindow->setClassRecord(d->m_components->classRecord);
+    // 5. 强制刷新显示窗口（重新加载并绘制表格）
+    d->m_ui->displayWindow->refresh();
+}
+
+void QuantifyDialog::onRequestDialogRestart()
+{
+    // 获取插件指针
+    Q_D(QuantifyDialog);
+    if (d->plugin) {
+        // 先隐藏并删除当前对话框
+        this->hide();
+        // 调用插件的重启方法
+        d->plugin->restartDialog();
+        // 延迟删除当前对话框，避免在插件的 restartDialog 中立即销毁导致问题
+        this->deleteLater();
+    } else {
+        // 没有插件指针，简单关闭
+        close();
+    }
+}
+
 void QuantifyDialog::closeEvent(QCloseEvent *event) {
     Q_D(QuantifyDialog);
     if (d->plugin)
         d->plugin->setWidget(nullptr);
     event->accept();
     deleteLater();
+}
+
+void QuantifyDialog::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    // 延迟显示密钥不匹配错误（确保窗口已经完全显示，避免构造时弹窗崩溃）
+    if (!m_keyMismatchError.isEmpty()) {
+        QMessageBox::critical(this, "错误", m_keyMismatchError);
+        m_keyMismatchError.clear();   // 只显示一次
+    }
 }

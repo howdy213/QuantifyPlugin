@@ -44,11 +44,11 @@ public:
     void recMsg(we::WMessage &msg) override;
     bool deinit(we::WMessage& msg) override;
     void setWidget(QuantifyDialog *widget) { this->widget = widget; };
+    void restartDialog();
 
 private:
     void showDialog();
     QuantifyDialog* widget=nullptr;
-    we::WEBase *we = nullptr;
 };
 
 #endif // QUANTIFYPLUGIN_H

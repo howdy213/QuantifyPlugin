@@ -53,10 +53,12 @@ public:
     void createRow(int row, const QString& name, const QVector<Record>& rec, float total);
     bool tableTextRank(int logicalIndex, const QString& A, const QString& B);
     void setViewDlg(QuantifyDisplayViewDialog *dlg) { viewDlg = dlg; }
-
+    void setClassRecord(ClassRecord *cr);
 signals:
     void recordRefresh();
 
+public slots:
+    void refresh();
 private slots:
     void on_btnExport_clicked();
     void on_CustomSort(int logicalIndex);

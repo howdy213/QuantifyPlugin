@@ -31,10 +31,18 @@
 class Encryptor
 {
 public:
-    static void init(const QString& privateKeyPath = QString(),
-                     const QString& publicKeyDir = QString());
-    static bool loadPublicKey(const QString& filePath);
+    // 增加以下公共方法
+    static void init();   // 初始化 OpenSSL 库（仅一次）
+    static bool loadPrivateKey(const QString& path);
+    static bool loadPublicKeyFromFile(const QString& filePath);
+    static bool loadPublicKeyFromResource();
+    static bool loadPublicKeyWithFallback(const QString& configDir);
+    static void clearPublicKey();
+    static void clearPrivateKey();
+    static bool hasPrivateKey();
+    static bool hasPublicKey();
     static bool keysMatch();
+    static bool hasEncryptedRecords(const QString& recordDir);
     static QByteArray encryptData(const QByteArray& plainData);
     static QByteArray decryptData(const QByteArray& encryptedData);
     static bool encryptFile(const QString& inputPath, const QString& outputPath);
@@ -42,22 +50,18 @@ public:
     static bool isEncrypted(const QByteArray& data);
     static bool isEncryptedFile(const QString& filePath);
     static bool generateKeyPair(const QString& privateKeyPath, const QString& publicKeyPath);
+    static bool convertRecordFile(const QString &filePath, bool targetEncrypted);
     static bool migrateRecordDirectory(const QString& dirPath, bool enableEncryption);
-    static bool hasPrivateKey();
     static QString getPrivateKeyPath();
     static QString getPublicKeyPath();
-
+    static bool isEncryptionModeActive(const QString &recordDir);
 private:
-    static bool loadPrivateKey(const QString& path);
-    static bool loadPublicKeyFromResource();
-    static bool loadPublicKeyFromFile(const QString& filePath);
     static QByteArray encryptAESKeyWithPrivateKey(const QByteArray& aesKey);
     static QByteArray decryptAESKeyWithPublicKey(const QByteArray& encryptedKey);
     static QByteArray generateAESKey();
 
     static void* m_privateKey;   // EVP_PKEY*
     static void* m_publicKey;    // EVP_PKEY*
-    static bool m_initialized;
     static QString m_privateKeyPath;
     static QString m_publicKeyPath;
 };

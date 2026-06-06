@@ -8,8 +8,8 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 INCLUDEPATH +=../deps/WECore/include
-include( ../deps/WECore/WECore.pri)
-include( ../deps/Qlementine.pri)
+include(../deps/WECore/WECore.pri)
+include(../deps/Qlementine.pri)
 INCLUDEPATH +=\
     ../deps
 SOURCES += \

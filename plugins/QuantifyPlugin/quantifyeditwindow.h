@@ -49,6 +49,7 @@ public:
     ~QuantifyEditWindow();
     void initialize(const Quantify::QuantifyComponents& components,
                     const Quantify::QuantifyUI& ui);
+    void setClassRecord(ClassRecord* cr);
 private slots:
     void on_comboBox_editTextChanged(const QString &arg1);
     void on_btnTemplate_clicked();
@@ -64,6 +65,12 @@ private slots:
     void onNamelistButtonClicked();
     void on_calendarWidget_activated(const QDate &date);   // 双击/回车触发
 
+    void on_btnFile1_clicked();
+
+    void on_btnFile2_clicked();
+
+    void on_btnFile3_clicked();
+
 public slots:
     void onUpdateSecurityInfo();
 
@@ -74,7 +81,7 @@ private:
     QString getCurrentDirectoryPath() const;
     QString readFileWithDecryption(const QString &filePath, bool isRecord) const;
     bool writeFileWithEncryption(const QString &filePath, const QString &content, bool isRecord) const;
-
+    void loadRecordFileByIndex(int index);
     void loadNamelistButtons();          // 从 cr 加载姓名按钮
     void updateCalendarColors();         // 更新日历颜色
     QMap<QDate, int> countRecordFiles();   // 统计规则文件数量

@@ -42,10 +42,18 @@ public:
     ~QuantifyDialog();
     bool readConfig();
     void setPlugin(QuantifyPlugin *plugin);
+private slots:
+    void onRequestDialogRestart();
+    void onSettingsChanged();
+    void onSettingUnsavedChanged(bool hasUnsaved);
+private:
+    void rebuildClassRecord();
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void showEvent(QShowEvent *event) override;   // 新增：用于延迟显示错误
 private:
     QScopedPointer<QuantifyDialogPrivate> d_ptr;
+    QString m_keyMismatchError;                   // 存储密钥不匹配错误信息
 };
 
 #endif // QUANTIFYDIALOG_H

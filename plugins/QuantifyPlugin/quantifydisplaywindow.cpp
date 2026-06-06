@@ -87,6 +87,94 @@ bool QuantifyDisplayWindow::tableTextRank(int logicalIndex, const QString &A,
     return A > B;
 }
 ///
+/// @brief QuantifyDisplayWindow::refresh
+///
+void QuantifyDisplayWindow::refresh()
+{
+    refreshData();
+
+    const int weekCount = m_cr->week();
+    const int colCount = weekCount + 2; // 姓名 + 每周 + 总分
+    ui->quantifyTable->setColumnCount(colCount);
+
+    QFont headerFont;
+    headerFont.setPointSize(12);
+    headerFont.setFamily("黑体");
+    QColor headerColor(0, 120, 240);
+
+    createCol(0, "姓名", headerFont, headerColor);
+    for (int i = 1; i <= weekCount; ++i) {
+        createCol(i, QString("第%1周").arg(i), headerFont, headerColor);
+    }
+    createCol(colCount - 1, "总分", headerFont, headerColor);
+
+    int currentMode = ui->comboType->currentIndex(); // 0:个人, 1:小组
+    int rowCount = (currentMode == 0) ? m_cr->students.size() : m_cr->groups.size();
+    ui->quantifyTable->setRowCount(rowCount);
+
+    QHeaderView *header = ui->quantifyTable->horizontalHeader();
+    header->setSectionResizeMode(0, QHeaderView::Fixed);
+    ui->quantifyTable->setColumnWidth(0, 100);
+    for (int i = 1; i < colCount; ++i) {
+        header->setSectionResizeMode(i, QHeaderView::Stretch);
+    }
+
+    int row = 0;
+    bool useAverage = ui->checkAverage->isChecked(); // 读取复选框状态
+    if (currentMode == 0) {
+        // 个人模式
+        for (auto it = m_cr->students.constBegin(); it != m_cr->students.constEnd();
+             ++it, ++row) {
+            const StudentRecord &student = it.value();
+            if (!useAverage) {
+                // 原始分数
+                createRow(row, student.name_ch, student.weekly, student.getScore().s3);
+            } else {
+                // 平均分：每周除以7，总分除以周数
+                QVector<Record> avgWeekly = student.weekly;
+                for (int w = 0; w < avgWeekly.size(); ++w) {
+                    avgWeekly[w].s2 /= 7.0; // 周总分 -> 日均
+                }
+                double avgTotal =
+                    (weekCount > 0) ? (student.getScore().s3 / weekCount) : 0.0;
+                createRow(row, student.name_ch, avgWeekly, avgTotal);
+            }
+        }
+    } else {
+        // 小组模式
+
+        for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd();
+             ++git, ++row) {
+            const GroupRecord &group = git.value();
+            double groupTotal = 0.0;
+            int memberCount = 0;
+            QVector<Record> groupWeekly(weekCount, Record{}); // 每周记录，仅 s2 有效
+
+            for (const QString &member : group.members) {
+                auto sit = m_cr->students.constFind(member);
+                if (sit == m_cr->students.constEnd())
+                    continue;
+                const StudentRecord &student = sit.value();
+                groupTotal += student.getScore().s3;
+                memberCount++;
+                for (int w = 0; w < weekCount && w < student.weekly.size(); ++w) {
+                    groupWeekly[w].s2 += student.weekly[w].s2;
+                }
+            }
+
+            if (useAverage && memberCount > 0) {
+                groupTotal /= memberCount;
+                for (int w = 0; w < weekCount; ++w) {
+                    groupWeekly[w].s2 /= memberCount;
+                }
+            }
+
+            createRow(row, group.name_ch, groupWeekly, groupTotal);
+        }
+    }
+    emit recordRefresh();
+}
+///
 /// \brief QuantifyDisplayWindow::on_CustomSort
 /// \param logicalIndex
 ///
@@ -191,88 +279,7 @@ void QuantifyDisplayWindow::on_btnExport_clicked() {
 /// \brief QuantifyDisplayWindow::on_btnRefresh_clicked
 ///
 void QuantifyDisplayWindow::on_btnRefresh_clicked() {
-    refreshData();
-
-    const int weekCount = m_cr->week();
-    const int colCount = weekCount + 2; // 姓名 + 每周 + 总分
-    ui->quantifyTable->setColumnCount(colCount);
-
-    QFont headerFont;
-    headerFont.setPointSize(12);
-    headerFont.setFamily("黑体");
-    QColor headerColor(0, 120, 240);
-
-    createCol(0, "姓名", headerFont, headerColor);
-    for (int i = 1; i <= weekCount; ++i) {
-        createCol(i, QString("第%1周").arg(i), headerFont, headerColor);
-    }
-    createCol(colCount - 1, "总分", headerFont, headerColor);
-
-    int currentMode = ui->comboType->currentIndex(); // 0:个人, 1:小组
-    int rowCount = (currentMode == 0) ? m_cr->students.size() : m_cr->groups.size();
-    ui->quantifyTable->setRowCount(rowCount);
-
-    QHeaderView *header = ui->quantifyTable->horizontalHeader();
-    header->setSectionResizeMode(0, QHeaderView::Fixed);
-    ui->quantifyTable->setColumnWidth(0, 100);
-    for (int i = 1; i < colCount; ++i) {
-        header->setSectionResizeMode(i, QHeaderView::Stretch);
-    }
-
-    int row = 0;
-    bool useAverage = ui->checkAverage->isChecked(); // 读取复选框状态
-    if (currentMode == 0) {
-        // 个人模式
-        for (auto it = m_cr->students.constBegin(); it != m_cr->students.constEnd();
-             ++it, ++row) {
-            const StudentRecord &student = it.value();
-            if (!useAverage) {
-                // 原始分数
-                createRow(row, student.name_ch, student.weekly, student.getScore().s3);
-            } else {
-                // 平均分：每周除以7，总分除以周数
-                QVector<Record> avgWeekly = student.weekly;
-                for (int w = 0; w < avgWeekly.size(); ++w) {
-                    avgWeekly[w].s2 /= 7.0; // 周总分 -> 日均
-                }
-                double avgTotal =
-                    (weekCount > 0) ? (student.getScore().s3 / weekCount) : 0.0;
-                createRow(row, student.name_ch, avgWeekly, avgTotal);
-            }
-        }
-    } else {
-        // 小组模式
-
-        for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd();
-             ++git, ++row) {
-            const GroupRecord &group = git.value();
-            double groupTotal = 0.0;
-            int memberCount = 0;
-            QVector<Record> groupWeekly(weekCount, Record{}); // 每周记录，仅 s2 有效
-
-            for (const QString &member : group.members) {
-                auto sit = m_cr->students.constFind(member);
-                if (sit == m_cr->students.constEnd())
-                    continue;
-                const StudentRecord &student = sit.value();
-                groupTotal += student.getScore().s3;
-                memberCount++;
-                for (int w = 0; w < weekCount && w < student.weekly.size(); ++w) {
-                    groupWeekly[w].s2 += student.weekly[w].s2;
-                }
-            }
-
-            if (useAverage && memberCount > 0) {
-                groupTotal /= memberCount;
-                for (int w = 0; w < weekCount; ++w) {
-                    groupWeekly[w].s2 /= memberCount;
-                }
-            }
-
-            createRow(row, group.name_ch, groupWeekly, groupTotal);
-        }
-    }
-    emit recordRefresh();
+    refresh();
 }
 ///
 /// \brief QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked
@@ -364,4 +371,9 @@ void QuantifyDisplayWindow::on_comboType_currentIndexChanged(int index) {
 
 void QuantifyDisplayWindow::on_checkAverage_stateChanged(int arg1) {
     on_btnRefresh_clicked();
+}
+
+void QuantifyDisplayWindow::setClassRecord(ClassRecord *cr) {
+    m_cr = cr;
+    refresh(); // 重新加载数据并刷新表格
 }

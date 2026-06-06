@@ -28,23 +28,22 @@
 #include <QDir>
 #include <QFile>
 
+#include <openssl/core_names.h>
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/pem.h>
 #include <openssl/rand.h>
 #include <openssl/rsa.h>
-#include <openssl/core_names.h>
 
 // 静态成员初始化
 void *Encryptor::m_privateKey = nullptr;
 void *Encryptor::m_publicKey = nullptr;
-bool Encryptor::m_initialized = false;
 QString Encryptor::m_privateKeyPath;
 QString Encryptor::m_publicKeyPath;
 
 // 辅助宏：获取 EVP_PKEY 指针
-#define PRIV_KEY  static_cast<EVP_PKEY*>(m_privateKey)
-#define PUB_KEY   static_cast<EVP_PKEY*>(m_publicKey)
+#define PRIV_KEY static_cast<EVP_PKEY *>(m_privateKey)
+#define PUB_KEY static_cast<EVP_PKEY *>(m_publicKey)
 
 static void logOpenSSLError(const QString &context) {
     char buf[256];
@@ -55,66 +54,22 @@ static void logOpenSSLError(const QString &context) {
     }
 }
 
-// =============== 初始化 ===============
-void Encryptor::init(const QString &privateKeyPath, const QString &publicKeyDir) {
-    m_privateKeyPath = QDir::cleanPath(privateKeyPath);
+void Encryptor::init() {
+    OpenSSL_add_all_algorithms();
+    ERR_load_crypto_strings();
+    // 不加载任何密钥
+}
 
-    if (!m_privateKeyPath.isEmpty()) {
-        loadPrivateKey(m_privateKeyPath);
-    } else {
+bool Encryptor::loadPrivateKey(const QString &path) {
+    QString path2;
+    path2 = QDir::cleanPath(path);
+    if (m_privateKey) {
+        EVP_PKEY_free(PRIV_KEY);
         m_privateKey = nullptr;
     }
-
-    if (!m_initialized) {
-        // 1. 优先尝试从指定目录加载 public.pem
-        QString pubPath;
-        if (!publicKeyDir.isEmpty()) {
-            pubPath = QDir(publicKeyDir).filePath("public.pem");
-            if (loadPublicKeyFromFile(pubPath)) {
-                Logger::instance().info("从目录加载公钥成功: " + pubPath);
-            }
-        }
-        // 2. 回退到内置公钥
-        if (!PUB_KEY && !loadPublicKeyFromResource()) {
-            Logger::instance().error("无法加载内置公钥，加密功能不可用");
-        }
-        m_initialized = true;
-    }
-}
-
-bool Encryptor::hasPrivateKey() { return m_privateKey != nullptr; }
-QString Encryptor::getPrivateKeyPath() { return m_privateKeyPath; }
-QString Encryptor::getPublicKeyPath() { return m_publicKeyPath; }
-
-// =============== 密钥匹配 ===============
-bool Encryptor::keysMatch() {
-    if (!m_privateKey || !m_publicKey)
-        return false;
-
-    EVP_PKEY *priv = PRIV_KEY;
-    EVP_PKEY *pub  = PUB_KEY;
-
-    // 比较模数 n
-    BIGNUM *priv_n = nullptr;
-    BIGNUM *pub_n = nullptr;
-
-    if (EVP_PKEY_get_bn_param(priv, "n", &priv_n) != 1) return false;
-    if (EVP_PKEY_get_bn_param(pub,  "n", &pub_n)  != 1) {
-        BN_free(priv_n);
-        return false;
-    }
-
-    bool equal = (BN_cmp(priv_n, pub_n) == 0);
-    BN_free(priv_n);
-    BN_free(pub_n);
-    return equal;
-}
-
-// =============== 加载密钥 ===============
-bool Encryptor::loadPrivateKey(const QString &path) {
-    QFile file(path);
+    QFile file(path2);
     if (!file.open(QIODevice::ReadOnly)) {
-        Logger::instance().error("无法打开私钥文件: " + path);
+        Logger::instance().error("无法打开私钥文件: " + path2);
         return false;
     }
     QByteArray keyData = file.readAll();
@@ -128,25 +83,29 @@ bool Encryptor::loadPrivateKey(const QString &path) {
         return false;
     }
     m_privateKey = pkey;
+    m_privateKeyPath = path2;
     Logger::instance().info("私钥加载成功: " + path);
     return true;
 }
 
 bool Encryptor::loadPublicKeyFromFile(const QString &filePath) {
-    // 如果已存在且路径相同，直接成功
-    if (PUB_KEY && m_publicKeyPath == filePath)
-        return true;
+    QString path2;
+    path2 = QDir::cleanPath(filePath);
+    // 若新公钥与当前私钥（如果存在）不匹配，但存在加密记录，则禁止替换
+    if (m_privateKey && hasEncryptedRecords(QFileInfo(path2).dir().path())) {
+        Logger::instance().error("尝试替换公钥，但存在加密记录文件，操作被拒绝");
+        return false;
+    }
 
-    // 否则释放旧公钥
     if (PUB_KEY) {
         EVP_PKEY_free(PUB_KEY);
         m_publicKey = nullptr;
         m_publicKeyPath.clear();
     }
 
-    QFile file(filePath);
+    QFile file(path2);
     if (!file.open(QIODevice::ReadOnly)) {
-        Logger::instance().error("无法打开公钥文件: " + filePath);
+        Logger::instance().error("无法打开公钥文件: " + path2);
         return false;
     }
     QByteArray keyData = file.readAll();
@@ -156,13 +115,63 @@ bool Encryptor::loadPublicKeyFromFile(const QString &filePath) {
     EVP_PKEY *pkey = PEM_read_bio_PUBKEY(bio, nullptr, nullptr, nullptr);
     BIO_free(bio);
     if (!pkey) {
-        logOpenSSLError("加载公钥失败: " + filePath);
+        logOpenSSLError("加载公钥失败: " + path2);
         return false;
     }
     m_publicKey = pkey;
-    m_publicKeyPath = filePath;
-    Logger::instance().info("公钥加载成功: " + filePath);
+    m_publicKeyPath = path2;
+    Logger::instance().info("公钥加载成功: " + path2);
     return true;
+}
+
+bool Encryptor::hasEncryptedRecords(const QString &recordDir) {
+    return isEncryptionModeActive(recordDir + "/record");
+}
+
+void Encryptor::clearPublicKey() {
+    if (m_publicKey) {
+        EVP_PKEY_free(PUB_KEY);
+        m_publicKey = nullptr;
+    }
+    m_publicKeyPath.clear();
+}
+
+void Encryptor::clearPrivateKey() {
+    if (m_privateKey) {
+        EVP_PKEY_free(PRIV_KEY);
+        m_privateKey = nullptr;
+    }
+    m_privateKeyPath.clear();
+}
+
+bool Encryptor::hasPrivateKey() { return m_privateKey != nullptr; }
+bool Encryptor::hasPublicKey() { return m_publicKey != nullptr; }
+QString Encryptor::getPrivateKeyPath() { return m_privateKeyPath; }
+QString Encryptor::getPublicKeyPath() { return m_publicKeyPath; }
+
+// =============== 密钥匹配 ===============
+bool Encryptor::keysMatch() {
+    if (!m_privateKey || !m_publicKey)
+        return false;
+
+    EVP_PKEY *priv = PRIV_KEY;
+    EVP_PKEY *pub = PUB_KEY;
+
+    // 比较模数 n
+    BIGNUM *priv_n = nullptr;
+    BIGNUM *pub_n = nullptr;
+
+    if (EVP_PKEY_get_bn_param(priv, "n", &priv_n) != 1)
+        return false;
+    if (EVP_PKEY_get_bn_param(pub, "n", &pub_n) != 1) {
+        BN_free(priv_n);
+        return false;
+    }
+
+    bool equal = (BN_cmp(priv_n, pub_n) == 0);
+    BN_free(priv_n);
+    BN_free(pub_n);
+    return equal;
 }
 
 bool Encryptor::loadPublicKeyFromResource() {
@@ -185,15 +194,20 @@ bool Encryptor::loadPublicKeyFromResource() {
         return false;
     }
     m_publicKey = pkey;
-    m_publicKeyPath.clear();   // 内置无文件路径
+    m_publicKeyPath.clear(); // 内置无文件路径
     Logger::instance().info("公钥加载成功（内置资源）");
     return true;
 }
 
-bool Encryptor::loadPublicKey(const QString &filePath) {
-    return loadPublicKeyFromFile(filePath);
+bool Encryptor::loadPublicKeyWithFallback(const QString &configDir) {
+    if (!configDir.isEmpty()) {
+        QString pubPath = QDir(configDir).filePath("public.pem");
+        if (QFile::exists(pubPath) && loadPublicKeyFromFile(pubPath))
+            return true;
+    }
+    // 回退到内置公钥
+    return loadPublicKeyFromResource();
 }
-
 // =============== AES 密钥加密/解密 ===============
 QByteArray Encryptor::encryptAESKeyWithPrivateKey(const QByteArray &aesKey) {
     if (!PRIV_KEY) {
@@ -221,16 +235,16 @@ QByteArray Encryptor::encryptAESKeyWithPrivateKey(const QByteArray &aesKey) {
     }
 
     size_t siglen = 0;
-    if (EVP_PKEY_sign(ctx, nullptr, &siglen,
-                      (const unsigned char*)aesKey.data(), aesKey.size()) <= 0) {
+    if (EVP_PKEY_sign(ctx, nullptr, &siglen, (const unsigned char *)aesKey.data(),
+                      aesKey.size()) <= 0) {
         logOpenSSLError("获取签名长度失败");
         EVP_PKEY_CTX_free(ctx);
         return {};
     }
 
     QByteArray signature(siglen, '\0');
-    if (EVP_PKEY_sign(ctx, (unsigned char*)signature.data(), &siglen,
-                      (const unsigned char*)aesKey.data(), aesKey.size()) <= 0) {
+    if (EVP_PKEY_sign(ctx, (unsigned char *)signature.data(), &siglen,
+                      (const unsigned char *)aesKey.data(), aesKey.size()) <= 0) {
         logOpenSSLError("私钥签名失败");
         EVP_PKEY_CTX_free(ctx);
         return {};
@@ -240,7 +254,8 @@ QByteArray Encryptor::encryptAESKeyWithPrivateKey(const QByteArray &aesKey) {
     return signature;
 }
 
-QByteArray Encryptor::decryptAESKeyWithPublicKey(const QByteArray &encryptedKey) {
+QByteArray
+Encryptor::decryptAESKeyWithPublicKey(const QByteArray &encryptedKey) {
     if (!PUB_KEY) {
         Logger::instance().error("公钥未加载，无法解密AES密钥");
         return {};
@@ -266,15 +281,17 @@ QByteArray Encryptor::decryptAESKeyWithPublicKey(const QByteArray &encryptedKey)
 
     size_t outlen = 0;
     if (EVP_PKEY_verify_recover(ctx, nullptr, &outlen,
-                                (const unsigned char*)encryptedKey.data(), encryptedKey.size()) <= 0) {
+                                (const unsigned char *)encryptedKey.data(),
+                                encryptedKey.size()) <= 0) {
         logOpenSSLError("获取恢复长度失败");
         EVP_PKEY_CTX_free(ctx);
         return {};
     }
 
     QByteArray aesKey(outlen, '\0');
-    if (EVP_PKEY_verify_recover(ctx, (unsigned char*)aesKey.data(), &outlen,
-                                (const unsigned char*)encryptedKey.data(), encryptedKey.size()) <= 0) {
+    if (EVP_PKEY_verify_recover(ctx, (unsigned char *)aesKey.data(), &outlen,
+                                (const unsigned char *)encryptedKey.data(),
+                                encryptedKey.size()) <= 0) {
         logOpenSSLError("公钥恢复AES密钥失败");
         EVP_PKEY_CTX_free(ctx);
         return {};
@@ -286,7 +303,7 @@ QByteArray Encryptor::decryptAESKeyWithPublicKey(const QByteArray &encryptedKey)
 
 QByteArray Encryptor::generateAESKey() {
     QByteArray key(32, '\0');
-    if (RAND_bytes((unsigned char*)key.data(), 32) != 1) {
+    if (RAND_bytes((unsigned char *)key.data(), 32) != 1) {
         logOpenSSLError("生成AES密钥失败");
         return {};
     }
@@ -295,13 +312,14 @@ QByteArray Encryptor::generateAESKey() {
 
 // =============== 数据加密/解密 ===============
 QByteArray Encryptor::encryptData(const QByteArray &plainData) {
-    if (!m_initialized || !m_privateKey) {
+    if (!m_privateKey) {
         Logger::instance().error("加密失败：私钥未加载");
         return {};
     }
 
     QByteArray aesKey = generateAESKey();
-    if (aesKey.isEmpty()) return {};
+    if (aesKey.isEmpty())
+        return {};
 
     unsigned char nonce[12];
     if (RAND_bytes(nonce, sizeof(nonce)) != 1) {
@@ -310,7 +328,8 @@ QByteArray Encryptor::encryptData(const QByteArray &plainData) {
     }
 
     QByteArray encryptedKey = encryptAESKeyWithPrivateKey(aesKey);
-    if (encryptedKey.isEmpty()) return {};
+    if (encryptedKey.isEmpty())
+        return {};
 
     QByteArray cipherText;
     QByteArray tag(16, '\0');
@@ -320,9 +339,10 @@ QByteArray Encryptor::encryptData(const QByteArray &plainData) {
         return {};
     }
 
-    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1 ||
+    if (EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) !=
+            1 ||
         EVP_EncryptInit_ex(ctx, nullptr, nullptr,
-                           (const unsigned char*)aesKey.data(), nonce) != 1) {
+                                                                                                         (const unsigned char *)aesKey.data(), nonce) != 1) {
         logOpenSSLError("AES-GCM初始化失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
@@ -330,22 +350,25 @@ QByteArray Encryptor::encryptData(const QByteArray &plainData) {
 
     int outlen = 0;
     cipherText.resize(plainData.size() + EVP_MAX_BLOCK_LENGTH);
-    if (EVP_EncryptUpdate(ctx, (unsigned char*)cipherText.data(), &outlen,
-                          (const unsigned char*)plainData.data(), plainData.size()) != 1) {
+    if (EVP_EncryptUpdate(ctx, (unsigned char *)cipherText.data(), &outlen,
+                          (const unsigned char *)plainData.data(),
+                          plainData.size()) != 1) {
         logOpenSSLError("AES-GCM加密更新失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
     }
     cipherText.resize(outlen);
 
-    if (EVP_EncryptFinal_ex(ctx, (unsigned char*)cipherText.data() + outlen, &outlen) != 1) {
+    if (EVP_EncryptFinal_ex(ctx, (unsigned char *)cipherText.data() + outlen,
+                            &outlen) != 1) {
         logOpenSSLError("AES-GCM加密最终失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
     }
     cipherText.resize(cipherText.size() + outlen);
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16, (unsigned char*)tag.data()) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16,
+                            (unsigned char *)tag.data()) != 1) {
         logOpenSSLError("获取GCM标签失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
@@ -355,7 +378,7 @@ QByteArray Encryptor::encryptData(const QByteArray &plainData) {
     QByteArray result;
     result.append("QCRY");
     result.append(encryptedKey);
-    result.append((const char*)nonce, 12);
+    result.append((const char *)nonce, 12);
     result.append(tag);
     result.append(cipherText);
     return result;
@@ -365,12 +388,12 @@ QByteArray Encryptor::decryptData(const QByteArray &encryptedData) {
     if (!isEncrypted(encryptedData))
         return encryptedData;
 
-    if (!m_initialized || !PUB_KEY) {
+    if (!PUB_KEY) {
         Logger::instance().error("解密失败：文件已加密但公钥未加载");
         return {};
     }
 
-    const int keyLen = 256;   // RSA-2048 输出固定 256 字节
+    const int keyLen = 256; // RSA-2048 输出固定 256 字节
     const int nonceLen = 12;
     const int tagLen = 16;
     int pos = 4;
@@ -389,7 +412,8 @@ QByteArray Encryptor::decryptData(const QByteArray &encryptedData) {
     QByteArray cipherText = encryptedData.mid(pos);
 
     QByteArray aesKey = decryptAESKeyWithPublicKey(encryptedKey);
-    if (aesKey.isEmpty()) return {};
+    if (aesKey.isEmpty())
+        return {};
 
     QByteArray plainText;
     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
@@ -398,10 +422,11 @@ QByteArray Encryptor::decryptData(const QByteArray &encryptedData) {
         return {};
     }
 
-    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) != 1 ||
+    if (EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), nullptr, nullptr, nullptr) !=
+            1 ||
         EVP_DecryptInit_ex(ctx, nullptr, nullptr,
-                           (const unsigned char*)aesKey.data(),
-                           (const unsigned char*)nonce.data()) != 1) {
+                                                                                                         (const unsigned char *)aesKey.data(),
+                                                                                                         (const unsigned char *)nonce.data()) != 1) {
         logOpenSSLError("AES-GCM解密初始化失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
@@ -409,22 +434,25 @@ QByteArray Encryptor::decryptData(const QByteArray &encryptedData) {
 
     int outlen = 0;
     plainText.resize(cipherText.size());
-    if (EVP_DecryptUpdate(ctx, (unsigned char*)plainText.data(), &outlen,
-                          (const unsigned char*)cipherText.data(), cipherText.size()) != 1) {
+    if (EVP_DecryptUpdate(ctx, (unsigned char *)plainText.data(), &outlen,
+                          (const unsigned char *)cipherText.data(),
+                          cipherText.size()) != 1) {
         logOpenSSLError("AES-GCM解密更新失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
     }
     plainText.resize(outlen);
 
-    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tagLen, (void*)tag.data()) != 1) {
+    if (EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, tagLen,
+                            (void *)tag.data()) != 1) {
         logOpenSSLError("设置GCM标签失败");
         EVP_CIPHER_CTX_free(ctx);
         return {};
     }
 
     int finalLen = 0;
-    if (EVP_DecryptFinal_ex(ctx, (unsigned char*)plainText.data() + outlen, &finalLen) != 1) {
+    if (EVP_DecryptFinal_ex(ctx, (unsigned char *)plainText.data() + outlen,
+                            &finalLen) != 1) {
         logOpenSSLError("AES-GCM解密最终失败，标签验证错误");
         EVP_CIPHER_CTX_free(ctx);
         return {};
@@ -435,7 +463,8 @@ QByteArray Encryptor::decryptData(const QByteArray &encryptedData) {
 }
 
 // =============== 文件级加解密 ===============
-bool Encryptor::encryptFile(const QString &inputPath, const QString &outputPath) {
+bool Encryptor::encryptFile(const QString &inputPath,
+                            const QString &outputPath) {
     QFile inFile(inputPath);
     if (!inFile.open(QIODevice::ReadOnly)) {
         Logger::instance().error("无法打开输入文件: " + inputPath);
@@ -445,7 +474,8 @@ bool Encryptor::encryptFile(const QString &inputPath, const QString &outputPath)
     inFile.close();
 
     QByteArray encrypted = encryptData(plainData);
-    if (encrypted.isEmpty()) return false;
+    if (encrypted.isEmpty())
+        return false;
 
     QFile outFile(outputPath);
     if (!outFile.open(QIODevice::WriteOnly)) {
@@ -457,7 +487,8 @@ bool Encryptor::encryptFile(const QString &inputPath, const QString &outputPath)
     return true;
 }
 
-bool Encryptor::decryptFile(const QString &inputPath, const QString &outputPath) {
+bool Encryptor::decryptFile(const QString &inputPath,
+                            const QString &outputPath) {
     QFile inFile(inputPath);
     if (!inFile.open(QIODevice::ReadOnly)) {
         Logger::instance().error("无法打开输入文件: " + inputPath);
@@ -501,7 +532,8 @@ bool Encryptor::isEncryptedFile(const QString &filePath) {
 }
 
 // =============== 密钥对生成 ===============
-bool Encryptor::generateKeyPair(const QString &privateKeyPath, const QString &publicKeyPath) {
+bool Encryptor::generateKeyPair(const QString &privateKeyPath,
+                                const QString &publicKeyPath) {
     EVP_PKEY_CTX *pctx = EVP_PKEY_CTX_new_from_name(nullptr, "RSA", nullptr);
     if (!pctx) {
         logOpenSSLError("无法创建RSA上下文");
@@ -535,7 +567,8 @@ bool Encryptor::generateKeyPair(const QString &privateKeyPath, const QString &pu
         EVP_PKEY_free(pkey);
         return false;
     }
-    if (!PEM_write_bio_PrivateKey(bio_priv, pkey, nullptr, nullptr, 0, nullptr, nullptr)) {
+    if (!PEM_write_bio_PrivateKey(bio_priv, pkey, nullptr, nullptr, 0, nullptr,
+                                  nullptr)) {
         logOpenSSLError("写入私钥失败");
         BIO_free(bio_priv);
         EVP_PKEY_free(pkey);
@@ -563,7 +596,33 @@ bool Encryptor::generateKeyPair(const QString &privateKeyPath, const QString &pu
     return true;
 }
 
-bool Encryptor::migrateRecordDirectory(const QString &dirPath, bool enableEncryption) {
+bool Encryptor::convertRecordFile(const QString &filePath,
+                                  bool targetEncrypted) {
+    bool currentlyEncrypted = isEncryptedFile(filePath);
+    if (currentlyEncrypted == targetEncrypted)
+        return true;
+
+    QString tempPath = filePath + ".tmp";
+    bool ok = false;
+    if (targetEncrypted) {
+        // 明文 → 加密
+        ok = encryptFile(filePath, tempPath);
+    } else {
+        // 加密 → 明文
+        ok = decryptFile(filePath, tempPath);
+    }
+    if (!ok)
+        return false;
+
+    if (!QFile::remove(filePath) || !QFile::rename(tempPath, filePath)) {
+        Logger::instance().error("替换文件失败: " + filePath);
+        return false;
+    }
+    return true;
+}
+
+bool Encryptor::migrateRecordDirectory(const QString &dirPath,
+                                       bool enableEncryption) {
     QDir dir(dirPath);
     if (!dir.exists()) {
         Logger::instance().error("目录不存在: " + dirPath);
@@ -583,7 +642,8 @@ bool Encryptor::migrateRecordDirectory(const QString &dirPath, bool enableEncryp
                     allOk = false;
                     continue;
                 }
-                if (!QFile::remove(originalPath) || !QFile::rename(tempPath, originalPath)) {
+                if (!QFile::remove(originalPath) ||
+                    !QFile::rename(tempPath, originalPath)) {
                     Logger::instance().error("替换文件失败: " + originalPath);
                     allOk = false;
                 }
@@ -594,7 +654,8 @@ bool Encryptor::migrateRecordDirectory(const QString &dirPath, bool enableEncryp
                     allOk = false;
                     continue;
                 }
-                if (!QFile::remove(originalPath) || !QFile::rename(tempPath, originalPath)) {
+                if (!QFile::remove(originalPath) ||
+                    !QFile::rename(tempPath, originalPath)) {
                     Logger::instance().error("替换文件失败: " + originalPath);
                     allOk = false;
                 }
@@ -602,4 +663,19 @@ bool Encryptor::migrateRecordDirectory(const QString &dirPath, bool enableEncryp
         }
     }
     return allOk;
+}
+
+// =============== 自动判断加密模式 ===============
+bool Encryptor::isEncryptionModeActive(const QString &recordDir) {
+    QDir dir(recordDir);
+    if (!dir.exists())
+        return false;
+    QStringList filters{"*.record"};
+    dir.setNameFilters(filters);
+    QFileInfoList files = dir.entryInfoList(QDir::Files);
+    for (const QFileInfo &fi : std::as_const(files)) {
+        if (isEncryptedFile(fi.absoluteFilePath()))
+            return true;
+    }
+    return false;
 }

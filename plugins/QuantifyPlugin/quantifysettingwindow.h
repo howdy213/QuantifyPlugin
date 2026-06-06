@@ -25,11 +25,12 @@
 #ifndef QUANTIFYSETTINGWINDOW_H
 #define QUANTIFYSETTINGWINDOW_H
 
-#include <QWidget>
 #include <QDir>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QMessageBox>
+#include <QWidget>
+#include <QProgressDialog>
 
 #include "WECore/metadata/WMetaDocument.h"
 #include "encryptor.h"
@@ -44,33 +45,56 @@ class QuantifySettingWindow : public QWidget {
 public:
     explicit QuantifySettingWindow(QWidget *parent = nullptr);
     ~QuantifySettingWindow();
-    void initialize(const Quantify::QuantifyComponents& components,
-                    const Quantify::QuantifyUI& ui);
+    void initialize(const Quantify::QuantifyComponents &components,
+                    const Quantify::QuantifyUI &ui);
 
-    void loadSettings();                    // 从 doc 加载当前设置到界面
-    void updatePrivateKeyStatus();          // 更新私钥状态显示
-
+    void loadSettings();           // 从 doc 加载当前设置到界面
+    void updatePrivateKeyStatus(); // 更新私钥状态显示
+signals:
+    void settingsChanged();
+    void requestDialogRestart();   // 请求重启主对话框
+    void unsavedChangesChanged(bool hasUnsaved);
 private slots:
-    void on_btnOpenDir_clicked();           // 打开插件目录
-    void on_btnPath_clicked();              // 打开数据目录
-    void on_btnChangeConfig_clicked();      // 新建示例
-    void on_btnSaveSettings_clicked();      // 保存所有设置
-    void on_btnGenKeyPair_clicked();        // 生成密钥对到U盘
-    void on_btnMigrateRecords_clicked();    // 迁移记录文件
+    void onAnyInputChanged();
+    void on_btnOpenDir_clicked();                 // 打开插件目录
+    void on_btnPath_clicked();                    // 打开数据目录
+    void on_btnChangeConfig_clicked();            // 新建示例
+    void on_btnSaveSettings_clicked();            // 保存所有设置
+    void on_btnGenKeyPair_clicked();              // 生成密钥对到U盘
+    void on_btnMigrateRecords_clicked();          // 迁移记录文件
     void on_checkEncrypt_stateChanged(int state); // 加密开关变化
 
-    void on_btnBrowsePath_clicked();        // 浏览数据目录
-    void on_btnBrowseAddon_clicked();       // 浏览附加程序目录
-    void on_btnBrowseTemplate_clicked();    // 浏览模板目录
+    void on_btnBrowsePath_clicked();     // 浏览数据目录
+    void on_btnBrowseAddon_clicked();    // 浏览附加程序目录
+    void on_btnBrowseTemplate_clicked(); // 浏览模板目录
+
+    void on_btnBackup_clicked();  // 备份
+    void on_btnRestore_clicked(); // 还原
 
     void on_btnLogOpen_clicked();
-
     void on_btnLogClear_clicked();
 
     void on_btnOpenNamelist_clicked();
+    void on_btnRestart_clicked();
+    void updateEncryptionModeCheckbox();
+    void on_btnImportPublicKey_clicked();
+
+    void on_btnRefreshKeys_clicked();
 
 private:
-    void browseDirectory(QLineEdit* lineEdit, const QString& title);
+    QString performBackup(const QString &backupRoot);
+    bool performRestore(const QString &backupDir);
+    QStringList getBackupSourceItems() const;
+    static bool copyDirectoryRecursively(const QString &srcPath,
+                                         const QString &dstPath,
+                                         bool overwrite = false,
+                                         QProgressDialog *progress = nullptr);
+    static bool removeDirectoryRecursively(const QString &path);
+    void showCopyProgressDialog(const QString &title,
+                                const QString &label,
+                                int maximum,
+                                std::function<bool(QProgressDialog*)> worker);
+    void browseDirectory(QLineEdit *lineEdit, const QString &title);
     bool createTemplateFile(const QString &filePath, const QString &content);
     bool createNamelistExcel(const QString &filePath);
     bool createConfigFile(const QString &configPath, const QDir &baseDir,
@@ -78,6 +102,9 @@ private:
 
     we::WMetaDocument *m_doc = nullptr;
     Ui::QuantifySettingWindow *ui;
+    QuantifyDisplayWindow *m_displayWnd = nullptr;
+    bool m_hasUnsavedChanges = false;
+    bool m_loading = false;
 };
 
 #endif // QUANTIFYSETTINGWINDOW_H

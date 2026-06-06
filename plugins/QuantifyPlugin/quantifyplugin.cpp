@@ -103,3 +103,12 @@ void QuantifyPlugin::showDialog() {
     } else
         widget->activateWindow();
 }
+
+void QuantifyPlugin::restartDialog()
+{
+    if (widget) {
+        widget->close();
+        widget = nullptr;
+    }
+    showDialog();
+}

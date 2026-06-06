@@ -28,13 +28,13 @@
 #include <guiddef.h>
 #include <shlobj.h>
 
-#include "WECore/metadata/WMetaDocument.h"
 #include "WECore/file/wshellexecute.h"
+#include "WECore/metadata/WMetaDocument.h"
 #include "encryptor.h"
-#include <QCryptoGraphicHash>
 #include "qmessagebox.h"
 #include "quantify.h"
 #include "virtualkeyboard.h"
+#include <QCryptoGraphicHash>
 
 #include "quantifydisplaywindow.h"
 #include "quantifyeditwindow.h"
@@ -97,6 +97,12 @@ void QuantifyEditWindow::initialize(
     }
 }
 
+void QuantifyEditWindow::setClassRecord(ClassRecord *cr) {
+    this->cr = cr;
+    updateCalendarColors(); // 重新标记日历中各日期有无记录
+    loadNamelistButtons();  // 重新加载学生姓名按钮（成员可能增减）
+}
+
 ///
 /// \brief 组合框文本变化事件（当前未使用）
 /// \param arg1 新文本
@@ -148,9 +154,16 @@ void QuantifyEditWindow::on_btnTemplate_clicked() {
 void QuantifyEditWindow::on_btnCheck_clicked() {
     if (cr != nullptr) {
         CheckResult isValid;
-        if (ui->comboBox->currentText() == "record")
+        if (ui->comboBox->currentText() == "record") {
             isValid = cr->isRecordValid(ui->textEdit->toPlainText());
-        else if (ui->comboBox->currentText() == DirGroup)
+            QRegularExpression fileNameRegex(R"(^(\d{8})-(\d+)$)");
+            QString baseName = QFileInfo(ui->nameEdit->text()).baseName();
+            if (!fileNameRegex.match(baseName).hasMatch()) {
+                isValid.success = false;
+                isValid.info += (isValid.info.isEmpty() ? "" : "\n");
+                isValid.info += "文件名不是规范格式";
+            }
+        } else if (ui->comboBox->currentText() == DirGroup)
             isValid = cr->isGroupFileValid(ui->textEdit->toPlainText());
         else
             isValid = cr->isRuleValid(ui->textEdit->toPlainText());
@@ -355,9 +368,11 @@ bool QuantifyEditWindow::writeFileWithEncryption(const QString &filePath,
     QByteArray plainData = content.toUtf8();
     QByteArray outData;
 
+    // 自动判断加密模式：只要记录目录中存在任意加密文件，则新文件也加密
     bool encryptEnabled = false;
-    if (doc && doc->hasArg(VarEncryption)) {
-        encryptEnabled = doc->get(VarEncryption).toBool();
+    if (isRecord && doc) {
+        encryptEnabled = Encryptor::hasEncryptedRecords(
+            Quantify::resolvePathWithKey(doc, DirPath));
     }
 
     if (isRecord && encryptEnabled) {
@@ -443,7 +458,7 @@ void QuantifyEditWindow::onNamelistButtonClicked() {
         return;
 
     QTextCursor cursor = ui->textEdit->textCursor();
-    cursor.beginEditBlock();                // 将整次插入封装为一个撤销单元
+    cursor.beginEditBlock(); // 将整次插入封装为一个撤销单元
     cursor.insertText(engName + "\n");
     cursor.endEditBlock();
     ui->textEdit->setTextCursor(cursor);
@@ -492,8 +507,7 @@ QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
 /// \brief 更新安全信息标签：显示文件哈希、最后修改时间、加密比例
 ///
 void QuantifyEditWindow::updateSecurityInfo() {
-    QString recordDir =
-        Quantify::resolvePathWithKey(doc, DirPath) + "/record";
+    QString recordDir = Quantify::resolvePathWithKey(doc, DirPath) + "/record";
     QDir dir(recordDir);
     QStringList recordFiles =
         dir.entryList(QStringList() << "*.record", QDir::Files);
@@ -525,7 +539,9 @@ void QuantifyEditWindow::updateSecurityInfo() {
 
     QString securityText =
         QString("%1 %2 %3 %4/%5 ")
-            .arg(hashHex, timeStr, lastModifiedFile.split('/').last()).arg(encryptedFiles).arg(totalFiles);
+                               .arg(hashHex, timeStr, lastModifiedFile.split('/').last())
+                               .arg(encryptedFiles)
+                               .arg(totalFiles);
     if (ui->labelSecurity) {
         ui->labelSecurity->setText(securityText);
     }
@@ -612,10 +628,54 @@ void QuantifyEditWindow::on_tabWidget_currentChanged(int index) {
 ///
 void QuantifyEditWindow::replaceTextEditContent(const QString &text) {
     QTextCursor cursor = ui->textEdit->textCursor();
-    cursor.beginEditBlock();               // 开始一个编辑块
-    cursor.select(QTextCursor::Document);  // 选中全部文本
-    cursor.insertText(text);               // 插入新文本，自动覆盖选区
-    cursor.endEditBlock();                 // 结束编辑块，形成单次撤销操作
+    cursor.beginEditBlock();              // 开始一个编辑块
+    cursor.select(QTextCursor::Document); // 选中全部文本
+    cursor.insertText(text);              // 插入新文本，自动覆盖选区
+    cursor.endEditBlock();                // 结束编辑块，形成单次撤销操作
     cursor.movePosition(QTextCursor::Start);
     ui->textEdit->setTextCursor(cursor);
 }
+
+void QuantifyEditWindow::loadRecordFileByIndex(int index) {
+    if (!doc) {
+        QMessageBox::warning(this, "错误", "配置未加载");
+        return;
+    }
+
+    // 获取当前日期前缀（例如 "20260606-"）
+    QString prefix = ui->nameEdit->text();
+    if (prefix.isEmpty()) {
+        QMessageBox::warning(this, "提示", "请先点击日历选择一个日期");
+        return;
+    }
+    // 确保前缀以短横线结尾，如果不是则自动补全
+    if (prefix.contains('-')) {
+        // 可能是 "20260606" 这种情况
+        prefix = prefix.left(prefix.lastIndexOf('-')) + "-";
+    }
+
+    QString fileName = prefix + QString::number(index) + ".record";
+    QString recordDir = Quantify::resolvePathWithKey(doc, DirPath) + "/record";
+    QString filePath = QDir(recordDir).filePath(fileName);
+
+    if (!QFile::exists(filePath)) {
+        QMessageBox::information(this, "提示",
+                                 QString("文件不存在：%1").arg(fileName));
+        return;
+    }
+
+    // 复用已有的解密读取函数（第二个参数 true 表示是记录文件）
+    QString content = readFileWithDecryption(filePath, true);
+    if (content.isNull())
+        return; // readFileWithDecryption 已弹出错误提示
+
+    replaceTextEditContent(content);
+    ui->nameEdit->setText(
+        fileName.left(fileName.lastIndexOf('.'))); // 去掉 .record 后缀
+}
+
+void QuantifyEditWindow::on_btnFile1_clicked() { loadRecordFileByIndex(1); }
+
+void QuantifyEditWindow::on_btnFile2_clicked() { loadRecordFileByIndex(2); }
+
+void QuantifyEditWindow::on_btnFile3_clicked() { loadRecordFileByIndex(3); }
