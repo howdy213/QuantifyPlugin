@@ -1,0 +1,7 @@
+({
+    reason: 'custom',
+    reason_ch: '自定义',
+    daily: function(record) { return record; },//这里的规则不重要
+    weekly: function(record) { return record; },//只是占位
+    termly: function(record) { return record; }
+})

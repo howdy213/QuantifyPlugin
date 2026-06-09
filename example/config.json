@@ -1,0 +1,6 @@
+{
+    "addon": "addon",
+    "engine": "js",
+    "path": "./example",
+    "template": "template"
+}

@@ -2,8 +2,8 @@
  * @file quantifysettingwindow.h
  * @brief 量化插件设置窗口
  * @author howdy213
- * @date 2026-4-12
- * @version 1.5.0
+ * @date 2026-06-09
+ * @version 2.1.1
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -45,43 +45,54 @@ class QuantifySettingWindow : public QWidget {
 public:
     explicit QuantifySettingWindow(QWidget *parent = nullptr);
     ~QuantifySettingWindow();
+
     void initialize(const Quantify::QuantifyComponents &components,
                     const Quantify::QuantifyUI &ui);
-
     void loadSettings();           // 从 doc 加载当前设置到界面
     void updatePrivateKeyStatus(); // 更新私钥状态显示
+
 signals:
     void settingsChanged();
     void requestDialogRestart();   // 请求重启主对话框
     void unsavedChangesChanged(bool hasUnsaved);
+
 private slots:
     void onAnyInputChanged();
-    void on_btnOpenDir_clicked();                 // 打开插件目录
-    void on_btnPath_clicked();                    // 打开数据目录
-    void on_btnChangeConfig_clicked();            // 新建示例
-    void on_btnSaveSettings_clicked();            // 保存所有设置
-    void on_btnGenKeyPair_clicked();              // 生成密钥对到U盘
-    void on_btnMigrateRecords_clicked();          // 迁移记录文件
-    void on_checkEncrypt_stateChanged(int state); // 加密开关变化
 
+    // 基础操作
+    void on_btnOpenDir_clicked();      // 打开插件目录
+    void on_btnPath_clicked();         // 打开数据目录
+    void on_btnChangeConfig_clicked(); // 新建示例
+    void on_btnSaveSettings_clicked(); // 保存所有设置
+
+    // 密钥与加密
+    void on_btnGenKeyPair_clicked();          // 生成密钥对到U盘
+    void on_btnMigrateRecords_clicked();      // 迁移记录文件
+    void on_btnImportPublicKey_clicked();     // 导入公钥
+    void on_btnRefreshKeys_clicked();         // 刷新密钥状态
+
+    // 目录浏览
     void on_btnBrowsePath_clicked();     // 浏览数据目录
     void on_btnBrowseAddon_clicked();    // 浏览附加程序目录
     void on_btnBrowseTemplate_clicked(); // 浏览模板目录
 
+    // 备份/恢复
     void on_btnBackup_clicked();  // 备份
     void on_btnRestore_clicked(); // 还原
 
-    void on_btnLogOpen_clicked();
-    void on_btnLogClear_clicked();
+    // 日志与名单
+    void on_btnLogOpen_clicked();       // 打开日志文件
+    void on_btnLogClear_clicked();      // 清空日志
+    void on_btnOpenNamelist_clicked();  // 打开名单Excel
 
-    void on_btnOpenNamelist_clicked();
-    void on_btnRestart_clicked();
-    void updateEncryptionModeCheckbox();
-    void on_btnImportPublicKey_clicked();
+    // 其他
+    void on_btnRestart_clicked();          // 重启插件
+    void on_btnCopySemester_clicked();     // 复制学期目录
 
-    void on_btnRefreshKeys_clicked();
+    void updateEncryptionModeCheckbox();   // 更新加密模式显示
 
 private:
+    // 备份恢复辅助
     QString performBackup(const QString &backupRoot);
     bool performRestore(const QString &backupDir);
     QStringList getBackupSourceItems() const;
@@ -94,8 +105,9 @@ private:
                                 const QString &label,
                                 int maximum,
                                 std::function<bool(QProgressDialog*)> worker);
+
+    // 配置与文件辅助
     void browseDirectory(QLineEdit *lineEdit, const QString &title);
-    bool createTemplateFile(const QString &filePath, const QString &content);
     bool createNamelistExcel(const QString &filePath);
     bool createConfigFile(const QString &configPath, const QDir &baseDir,
                           const QString &termDirName, const QString &engineType);

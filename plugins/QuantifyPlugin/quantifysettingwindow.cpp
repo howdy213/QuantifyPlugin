@@ -2,8 +2,8 @@
  * @file quantifysettingwindow.cpp
  * @brief 量化插件设置窗口实现
  * @author howdy213
- * @date 2026-4-12
- * @version 1.5.0
+ * @date 2026-06-09
+ * @version 2.1.1
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -39,11 +39,9 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDialogButtonBox>
-#include <QDirIterator>
 #include <QLabel>
 #include <QLineEdit>
 #include <QRegularExpression>
-#include <QSet>
 #include <QStandardPaths>
 #include <QVBoxLayout>
 
@@ -52,14 +50,16 @@ using namespace we::Consts;
 using namespace Quantify;
 using namespace Quantify::Consts;
 
+// =========================== 构造 / 析构 ===========================
 QuantifySettingWindow::QuantifySettingWindow(QWidget *parent)
     : QWidget(parent), ui(new Ui::QuantifySettingWindow) {
     ui->setupUi(this);
     ui->comboEngine->addItems({EngineNative, EngineJS});
     ui->btnSaveSettings->setEnabled(false);
     ui->btnGenKeyPair->setEnabled(true);
+    ui->checkEncrypt->setEnabled(false);
 
-    // 连接所有输入控件的修改信号到 onAnyInputChanged
+    // 输入信号连接
     connect(ui->editPath, &QLineEdit::textChanged, this,
             &QuantifySettingWindow::onAnyInputChanged);
     connect(ui->editAddon, &QLineEdit::textChanged, this,
@@ -70,27 +70,26 @@ QuantifySettingWindow::QuantifySettingWindow(QWidget *parent)
             &QuantifySettingWindow::onAnyInputChanged);
     connect(ui->checkEncrypt, &QCheckBox::checkStateChanged, this,
             &QuantifySettingWindow::onAnyInputChanged);
-
-    ui->checkEncrypt->setEnabled(false);
 }
 
 QuantifySettingWindow::~QuantifySettingWindow() { delete ui; }
 
-void QuantifySettingWindow::initialize(
-    const Quantify::QuantifyComponents &components,
-    const Quantify::QuantifyUI &ui) {
+// =========================== 初始化 ===========================
+void QuantifySettingWindow::initialize(const QuantifyComponents &components,
+                                       const QuantifyUI &ui) {
     m_displayWnd = ui.displayWindow;
     m_doc = components.config;
-    loadSettings(); // 会重置未保存标志
+    loadSettings(); // 重置未保存标志
     this->ui->btnSaveSettings->setEnabled(true);
 }
 
+// =========================== 用户交互 ===========================
 void QuantifySettingWindow::onAnyInputChanged() {
     if (m_loading)
-        return; // 加载过程中不触发
+        return;
     if (!m_hasUnsavedChanges) {
         m_hasUnsavedChanges = true;
-        ui->labelInfo->setText("保存设置后继续使用");
+        ui->labelInfo->setText(tr("保存设置后继续使用"));
         emit unsavedChangesChanged(true);
     }
 }
@@ -99,8 +98,7 @@ void QuantifySettingWindow::loadSettings() {
     if (!m_doc)
         return;
 
-    m_loading = true; // 禁止触发 onAnyInputChanged
-
+    m_loading = true;
     ui->editPath->setText(m_doc->get(DirPath).toString());
     ui->editAddon->setText(m_doc->get(DirAddon).toString());
     ui->editTemplate->setText(m_doc->get(DirTemplate).toString());
@@ -111,7 +109,6 @@ void QuantifySettingWindow::loadSettings() {
     updateEncryptionModeCheckbox();
     m_loading = false;
 
-    // 重置未保存标志
     if (m_hasUnsavedChanges) {
         m_hasUnsavedChanges = false;
         emit unsavedChangesChanged(false);
@@ -132,13 +129,24 @@ void QuantifySettingWindow::updatePrivateKeyStatus() {
     updateEncryptionModeCheckbox();
 }
 
+void QuantifySettingWindow::updateEncryptionModeCheckbox() {
+    if (!m_doc)
+        return;
+    bool active =
+        Encryptor::hasEncryptedRecords(resolvePathWithKey(m_doc, DirPath));
+    ui->checkEncrypt->setChecked(active);
+    ui->checkEncrypt->setToolTip(active ? tr("当前为加密模式")
+                                        : tr("当前为明文模式"));
+}
+
+// =========================== 按钮槽函数 ===========================
 void QuantifySettingWindow::on_btnOpenDir_clicked() {
     WShellExecute::syncExecute(
         WPath().splitPath(PPlugin->getMetaData(Plugin::Path).toString()));
 }
 
 void QuantifySettingWindow::on_btnPath_clicked() {
-    QString path = Quantify::resolvePath(m_doc, ui->editPath->text());
+    QString path = resolvePath(m_doc, ui->editPath->text());
     QDesktopServices::openUrl(QUrl("file:" + path, QUrl::TolerantMode));
 }
 
@@ -164,6 +172,10 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
     comboEngine->addItem(EngineJS);
     comboEngine->setCurrentIndex(0);
 
+    QCheckBox *checkOverwriteTemplate =
+        new QCheckBox(tr("覆盖模板文件（否则仅补充缺失文件）"));
+    checkOverwriteTemplate->setChecked(false);
+
     QDialogButtonBox *buttonBox =
         new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     connect(buttonBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
@@ -173,6 +185,7 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
     mainLayout->addWidget(editPath);
     mainLayout->addWidget(labelEngine);
     mainLayout->addWidget(comboEngine);
+    mainLayout->addWidget(checkOverwriteTemplate);
     mainLayout->addWidget(buttonBox);
 
     if (dlg.exec() != QDialog::Accepted)
@@ -180,6 +193,7 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
 
     QString termDirName = editPath->text().trimmed();
     QString engineType = comboEngine->currentText();
+    bool overwriteTemplate = checkOverwriteTemplate->isChecked();
 
     static QRegularExpression re("^[a-zA-Z0-9_]+$");
     if (termDirName.isEmpty() || !re.match(termDirName).hasMatch()) {
@@ -193,35 +207,54 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
         WPath().splitPath(PPlugin->getMetaData(Plugin::Path).toString());
     QString basePath = pluginPath + "Quantify/";
     QDir baseDir(basePath);
+    if (!baseDir.exists() && !baseDir.mkpath(".")) {
+        QMessageBox::critical(this, tr("错误"), tr("无法创建 Quantify 目录。"));
+        return;
+    }
 
-    if (baseDir.exists()) {
+    QString dataPath = baseDir.filePath(termDirName);
+    QString templatePath = baseDir.filePath(DirTemplate);
+
+    // 处理学期目录已存在的情况
+    if (QDir(dataPath).exists()) {
         QMessageBox msgBox;
         msgBox.setWindowTitle(tr("目录已存在"));
-        msgBox.setText(tr("目录 %1 已存在，请选择操作：").arg(basePath));
+        msgBox.setText(
+            tr("学期目录 %1 "
+               "已存在。\n是否删除该学期目录及其规则/记录文件，并重建示例？")
+                .arg(termDirName));
         QPushButton *deleteButton =
             msgBox.addButton(tr("删除并重建"), QMessageBox::YesRole);
         QPushButton *continueButton =
-            msgBox.addButton(tr("继续(不清除)"), QMessageBox::NoRole);
+            msgBox.addButton(tr("继续(不清除现有数据)"), QMessageBox::NoRole);
         QPushButton *cancelButton =
             msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
         msgBox.exec();
 
-        if (msgBox.clickedButton() == cancelButton) {
+        if (msgBox.clickedButton() == cancelButton)
             return;
-        } else if (msgBox.clickedButton() == deleteButton) {
-            if (!baseDir.removeRecursively()) {
+
+        if (msgBox.clickedButton() == deleteButton) {
+            QDir dataDir(dataPath);
+            if (!dataDir.removeRecursively()) {
                 QMessageBox::critical(this, tr("错误"),
-                                      tr("无法清空目录，请检查权限。"));
+                                      tr("无法删除学期目录: %1").arg(dataPath));
                 return;
             }
-            if (!QDir().mkpath(basePath)) {
-                QMessageBox::critical(this, tr("错误"), tr("无法创建基础目录。"));
+            if (QDir(templatePath).exists() &&
+                !QDir(templatePath).removeRecursively()) {
+                QMessageBox::critical(this, tr("错误"),
+                                      tr("无法删除模板目录: %1").arg(templatePath));
                 return;
             }
-            baseDir = QDir(basePath);
+            if (!baseDir.mkpath(templatePath) || !baseDir.mkpath(dataPath)) {
+                QMessageBox::critical(this, tr("错误"), tr("无法重建目录。"));
+                return;
+            }
         }
     }
 
+    // 创建必要的子目录
     QStringList subDirs = {DirAddon,
                            DirTemplate,
                            termDirName,
@@ -235,55 +268,58 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
         }
     }
 
-    if (!createTemplateFile(baseDir.filePath("template/record.txt"),
-                            "daily\n[late]\n\n"))
+    // 创建模板文件的 lambda
+    auto createTemplate = [&](const QString &fileName,
+                              const QString &content) -> bool {
+        QString fullPath = baseDir.filePath("template/" + fileName);
+        if (QFile::exists(fullPath) && !overwriteTemplate)
+            return true;
+        QFile file(fullPath);
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QMessageBox::critical(this, tr("错误"),
+                                  tr("无法写入模板文件: %1").arg(fullPath));
+            return false;
+        }
+        QTextStream out(&file);
+        out << content;
+        return true;
+    };
+
+    if (!createTemplate("record.txt", "daily\n[late]\n\n"))
         return;
-    if (!createTemplateFile(baseDir.filePath("template/rule-native.txt"),
-                            "reason reason_ch\n-\n-\n-\n-\n"))
+    if (!createTemplate("rule-native.txt", "reason reason_ch\n-\n-\n-\n-\n"))
         return;
-    if (!createTemplateFile(baseDir.filePath("template/rule-js.txt"),
-                            "({ \n"
-                            "    reason: 'assembly+',\n"
-                            "    reason_ch: '集会',\n"
-                            "    daily: function(ctx) {\n"
-                            "        ctx.record.t += 1;\n"
-                            "        ctx.record.s += 0.1;\n"
-                            "        return ctx;\n"
-                            "    },\n"
-                            "    weekly: function(ctx) { return ctx; },\n"
-                            "    termly: function(ctx) { return ctx; }\n"
-                            "})\n"))
+    if (!createTemplate("rule-js.txt", "function commonHandler(ctx) {\n"
+                                       "    ctx.record.t += 1;\n"
+                                       "    ctx.record.s += 0.5;\n"
+                                       "    return ctx;\n"
+                                       "}\n"
+                                       "\n"
+                                       "({\n"
+                                       "    reason: \"commonRule\",\n"
+                                       "    reason_ch: \"通用规则\",\n"
+                                       "    daily: commonHandler,\n"
+                                       "    weekly: commonHandler,\n"
+                                       "    termly: commonHandler\n"
+                                       "})\n"))
         return;
 
+    // 创建 namelist.xlsx（仅在不存在时）
     QString excelPath = baseDir.filePath(termDirName + "/namelist.xlsx");
-    if (!createNamelistExcel(excelPath))
+    if (!QFile::exists(excelPath) && !createNamelistExcel(excelPath))
         return;
 
+    // 创建/更新 config.json
     QString configPath = pluginPath + "Quantify/config.json";
     if (!createConfigFile(configPath, baseDir, termDirName, engineType))
         return;
 
     QMessageBox::information(
         this, tr("成功"),
-        tr("示例文件夹及文件已创建在：%1\n\n配置文件已生成：%"
-           "2\n请重启插件以应用新配置。")
+        tr("示例目录及文件已准备就绪：\n%1\n\n配置文件已更新：%"
+           "2\n将重启插件以应用新配置。")
             .arg(basePath, configPath));
-}
-
-bool QuantifySettingWindow::createTemplateFile(const QString &filePath,
-                                               const QString &content) {
-    QFile file(filePath);
-    if (file.exists())
-        return true;
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, tr("错误"),
-                              tr("无法创建模板文件：%1").arg(filePath));
-        return false;
-    }
-    QTextStream out(&file);
-    out << content;
-    file.close();
-    return true;
+    emit requestDialogRestart();
 }
 
 bool QuantifySettingWindow::createNamelistExcel(const QString &filePath) {
@@ -308,8 +344,7 @@ bool QuantifySettingWindow::createConfigFile(const QString &configPath,
                                              const QDir &baseDir,
                                              const QString &termDirName,
                                              const QString &engineType) {
-    QFileInfo configInfo(configPath);
-    QDir configDir = configInfo.absoluteDir();
+    QDir configDir = QFileInfo(configPath).absoluteDir();
     if (!configDir.exists() && !configDir.mkpath(".")) {
         QMessageBox::critical(this, tr("错误"), tr("无法创建配置目录。"));
         return false;
@@ -332,7 +367,6 @@ bool QuantifySettingWindow::createConfigFile(const QString &configPath,
     configObj[DirTemplate] = m_doc->hasArg(DirTemplate)
                                  ? m_doc->get(DirTemplate).toString()
                                  : "./template";
-    // configObj[VarEncryption] = false; // 已废弃，但保留
 
     QJsonDocument doc(configObj);
     QFile configFile(configPath);
@@ -341,7 +375,6 @@ bool QuantifySettingWindow::createConfigFile(const QString &configPath,
         return false;
     }
     configFile.write(doc.toJson());
-    configFile.close();
     return true;
 }
 
@@ -351,17 +384,11 @@ void QuantifySettingWindow::on_btnSaveSettings_clicked() {
         return;
     }
 
-    QString newPath = ui->editPath->text().trimmed();
-    QString newAddon = ui->editAddon->text().trimmed();
-    QString newTemplate = ui->editTemplate->text().trimmed();
-    QString newEngine = ui->comboEngine->currentText();
-    bool newEncrypt = ui->checkEncrypt->isChecked();
-
-    m_doc->set(DirPath, newPath);
-    m_doc->set(DirAddon, newAddon);
-    m_doc->set(DirTemplate, newTemplate);
-    m_doc->set(VarEngine, newEngine);
-    m_doc->set(VarEncryption, newEncrypt);
+    m_doc->set(DirPath, ui->editPath->text().trimmed());
+    m_doc->set(DirAddon, ui->editAddon->text().trimmed());
+    m_doc->set(DirTemplate, ui->editTemplate->text().trimmed());
+    m_doc->set(VarEngine, ui->comboEngine->currentText());
+    m_doc->set(VarEncryption, ui->checkEncrypt->isChecked());
 
     QString configPath =
         WPath(PData).getModuleFolder(PPlugin->getId()) + "Quantify/config.json";
@@ -369,8 +396,8 @@ void QuantifySettingWindow::on_btnSaveSettings_clicked() {
         QMessageBox::critical(this, tr("错误"), tr("保存配置文件失败"));
         return;
     }
-    loadSettings(); // 重新加载（会重置未保存标志）
-    ui->labelInfo->setText("已保存");
+    loadSettings(); // 重置未保存标志
+    ui->labelInfo->setText(tr("已保存"));
     QMessageBox::information(this, tr("成功"),
                              tr("设置已保存，部分更改需要重启插件后完全生效。"));
     emit settingsChanged();
@@ -379,7 +406,7 @@ void QuantifySettingWindow::on_btnSaveSettings_clicked() {
 void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
     bool encryptEnabled = ui->checkEncrypt->isChecked();
     if (encryptEnabled) {
-        QString recordDir = Quantify::resolvePathWithKey(m_doc, DirPath);
+        QString recordDir = resolvePathWithKey(m_doc, DirPath);
         if (Encryptor::hasEncryptedRecords(recordDir)) {
             QMessageBox::warning(
                 this, tr("操作禁止"),
@@ -390,11 +417,12 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
     }
 
     QFileInfoList drives = QDir::drives();
-    QString selectedDrive;
     if (drives.isEmpty()) {
         QMessageBox::warning(this, tr("错误"), tr("未找到任何磁盘驱动器。"));
         return;
     }
+
+    QString selectedDrive;
     if (drives.size() == 1) {
         selectedDrive = drives.first().absolutePath();
     } else {
@@ -414,8 +442,7 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
     const QString publicKeyInConfig =
         QDir(getConfigDir(m_doc)).filePath("public.pem");
 
-    const bool encryptionEnabled = ui->checkEncrypt->isChecked();
-    if (encryptionEnabled && QFile::exists(publicKeyInConfig)) {
+    if (encryptEnabled && QFile::exists(publicKeyInConfig)) {
         QMessageBox::warning(this, tr("操作禁止"),
                              tr("当前已启用加密模式，无法重新生成密钥对。\n"
                                 "请先关闭“加密记录文件”选项后再试。"));
@@ -429,13 +456,12 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
         existingFiles << tr("U盘公钥: %1").arg(publicKeyOnDrive);
     if (QFile::exists(publicKeyInConfig))
         existingFiles << tr("配置公钥: %1").arg(publicKeyInConfig);
-
     if (!existingFiles.isEmpty()) {
         QString msg =
             tr("以下文件已存在，是否覆盖？\n\n%1").arg(existingFiles.join('\n'));
-        int ret = QMessageBox::question(this, tr("确认覆盖"), msg,
-                                        QMessageBox::Yes | QMessageBox::No);
-        if (ret != QMessageBox::Yes)
+        if (QMessageBox::question(this, tr("确认覆盖"), msg,
+                                  QMessageBox::Yes | QMessageBox::No) !=
+            QMessageBox::Yes)
             return;
     }
 
@@ -445,14 +471,12 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
         return;
     }
 
-    if (QFile::exists(publicKeyOnDrive)) {
-        if (!QFile::remove(publicKeyOnDrive)) {
-            QMessageBox::warning(this, tr("部分成功"),
-                                 tr("无法删除 U 盘上的旧公钥（%1），复制公钥失败。\n"
-                                    "请手动将 %2 复制到 U 盘根目录。")
-                                     .arg(publicKeyOnDrive, publicKeyInConfig));
-            return;
-        }
+    if (QFile::exists(publicKeyOnDrive) && !QFile::remove(publicKeyOnDrive)) {
+        QMessageBox::warning(this, tr("部分成功"),
+                             tr("无法删除 U 盘上的旧公钥（%1），复制公钥失败。\n"
+                                "请手动将 %2 复制到 U 盘根目录。")
+                                 .arg(publicKeyOnDrive, publicKeyInConfig));
+        return;
     }
     if (!QFile::copy(publicKeyInConfig, publicKeyOnDrive)) {
         QMessageBox::warning(this, tr("部分成功"),
@@ -463,13 +487,9 @@ void QuantifySettingWindow::on_btnGenKeyPair_clicked() {
 
     QMessageBox::information(
         this, tr("成功"),
-        tr("密钥对已生成！\n"
-           "私钥: %1\n"
-           "公钥(U盘备份): %2\n"
-           "公钥(插件目录): %3\n\n"
+        tr("密钥对已生成！\n私钥: %1\n公钥(U盘备份): %2\n公钥(插件目录): %3\n\n"
            "请将公钥文件分发给需要使用解密功能的人员。")
             .arg(privateKeyPath, publicKeyOnDrive, publicKeyInConfig));
-
     updatePrivateKeyStatus();
 }
 
@@ -479,7 +499,7 @@ void QuantifySettingWindow::on_btnMigrateRecords_clicked() {
         return;
     }
 
-    QString recordDir = Quantify::resolvePathWithKey(m_doc, DirPath) + "/record";
+    QString recordDir = resolvePathWithKey(m_doc, DirPath) + "/record";
     if (!QDir(recordDir).exists()) {
         QMessageBox::warning(this, tr("错误"),
                              tr("记录目录不存在: %1").arg(recordDir));
@@ -504,15 +524,13 @@ void QuantifySettingWindow::on_btnMigrateRecords_clicked() {
 
     if (Encryptor::migrateRecordDirectory(recordDir, !currentMode)) {
         QMessageBox::information(this, tr("成功"), tr("迁移完成"));
-        updateEncryptionModeCheckbox(); // 刷新复选框状态
+        updateEncryptionModeCheckbox();
         emit settingsChanged();
     } else {
         QMessageBox::critical(this, tr("错误"),
                               tr("迁移过程中发生错误，请检查日志。"));
     }
 }
-
-void QuantifySettingWindow::on_checkEncrypt_stateChanged(int state) {}
 
 void QuantifySettingWindow::browseDirectory(QLineEdit *lineEdit,
                                             const QString &title) {
@@ -527,42 +545,53 @@ void QuantifySettingWindow::browseDirectory(QLineEdit *lineEdit,
         initialDir = configDir;
     }
     QString dir = QFileDialog::getExistingDirectory(this, title, initialDir);
-    if (!dir.isEmpty()) {
-        QDir config(configDir);
-        QString relative = config.relativeFilePath(dir);
-        if (!relative.startsWith("..") && !QFileInfo(relative).isAbsolute()) {
-            lineEdit->setText(relative);
-        } else {
-            lineEdit->setText(dir);
-        }
+    if (dir.isEmpty())
+        return;
+
+    QDir config(configDir);
+    QString relative = config.relativeFilePath(dir);
+    if (!relative.startsWith("..") && !QFileInfo(relative).isAbsolute()) {
+        lineEdit->setText(relative);
+    } else {
+        lineEdit->setText(dir);
     }
 }
 
 void QuantifySettingWindow::on_btnBrowsePath_clicked() {
     browseDirectory(ui->editPath, tr("选择数据目录"));
 }
-
 void QuantifySettingWindow::on_btnBrowseAddon_clicked() {
     browseDirectory(ui->editAddon, tr("选择附加程序目录"));
 }
-
 void QuantifySettingWindow::on_btnBrowseTemplate_clicked() {
     browseDirectory(ui->editTemplate, tr("选择模板目录"));
 }
 
-// 递归统计目录下所有文件的数量
-static int countFilesOnly(const QString &path) {
-    QDir dir(path);
-    int total = 0;
-    QFileInfoList entries =
-        dir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
-    for (const QFileInfo &info : std::as_const(entries)) {
-        if (info.isDir())
-            total += countFilesOnly(info.filePath());
+// =========================== 备份 / 恢复 ===========================
+QStringList QuantifySettingWindow::getBackupSourceItems() const {
+    QStringList items;
+    QString configDir = getConfigDir(m_doc);
+    QDir baseDir(configDir);
+    if (!baseDir.exists())
+        return items;
+
+    items << "config.json";
+    if (QFile::exists(baseDir.filePath("public.pem")))
+        items << "public.pem";
+    if (baseDir.exists(DirTemplate))
+        items << DirTemplate;
+
+    QString dataDirName = m_doc->get(DirPath).toString();
+    if (!dataDirName.isEmpty()) {
+        QDir dataDir = baseDir.filePath(dataDirName);
+        if (dataDir.exists())
+            items << dataDirName;
         else
-            ++total;
+            Logger::instance().warn("备份: 数据目录不存在: " + dataDirName);
+    } else {
+        Logger::instance().warn("备份: 配置中未指定数据目录 (path)");
     }
-    return total;
+    return items;
 }
 
 bool QuantifySettingWindow::copyDirectoryRecursively(
@@ -576,16 +605,15 @@ bool QuantifySettingWindow::copyDirectoryRecursively(
     if (!dstDir.exists() && !dstDir.mkpath("."))
         return false;
 
-    bool success = true;
     QFileInfoList entries =
         srcDir.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     int total = entries.size();
     int current = 0;
+    bool success = true;
 
-    for (const QFileInfo &info : entries) {
+    for (const QFileInfo &info : std::as_const(entries)) {
         if (progress && progress->wasCanceled())
             return false;
-
         if (progress) {
             progress->setValue(current++);
             qApp->processEvents();
@@ -596,7 +624,6 @@ bool QuantifySettingWindow::copyDirectoryRecursively(
         if (info.isDir()) {
             if (!copyDirectoryRecursively(srcItem, dstItem, overwrite, progress))
                 success = false;
-            // 目录不增加进度值
         } else {
             if (QFile::exists(dstItem) && !overwrite)
                 continue;
@@ -605,17 +632,22 @@ bool QuantifySettingWindow::copyDirectoryRecursively(
                 Logger::instance().error(
                     QString("复制文件失败: %1 -> %2").arg(srcItem, dstItem));
             }
-            // 仅文件增加进度
             if (progress) {
                 progress->setValue(progress->value() + 1);
                 qApp->processEvents();
             }
         }
     }
-
     if (progress)
         progress->setValue(total);
     return success;
+}
+
+bool QuantifySettingWindow::removeDirectoryRecursively(const QString &path) {
+    QDir dir(path);
+    if (!dir.exists())
+        return true;
+    return dir.removeRecursively();
 }
 
 void QuantifySettingWindow::showCopyProgressDialog(
@@ -642,7 +674,6 @@ void QuantifySettingWindow::on_btnBackup_clicked() {
         QMessageBox::warning(this, tr("错误"), tr("配置文档未初始化。"));
         return;
     }
-
     QString backupRoot = QFileDialog::getExistingDirectory(
         this, tr("选择备份根目录"),
         QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
@@ -656,75 +687,6 @@ void QuantifySettingWindow::on_btnBackup_clicked() {
     }
 }
 
-void QuantifySettingWindow::on_btnRestore_clicked() {
-    if (!m_doc) {
-        QMessageBox::warning(this, tr("错误"), tr("配置文档未初始化。"));
-        return;
-    }
-    QString backupDir = QFileDialog::getExistingDirectory(
-        this, tr("选择备份文件夹"),
-        QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
-    if (backupDir.isEmpty())
-        return;
-
-    performRestore(backupDir);
-}
-
-bool QuantifySettingWindow::removeDirectoryRecursively(const QString &path) {
-    QDir dir(path);
-    if (!dir.exists())
-        return true;
-    return dir.removeRecursively();
-}
-
-void QuantifySettingWindow::on_btnLogOpen_clicked() {
-    QString logPath = QDir(WPath(PData).getModuleFolder(PPlugin->getId()))
-                          .filePath("Quantify/logs/quantify.log");
-    QDesktopServices::openUrl(QUrl("file:" + logPath, QUrl::TolerantMode));
-}
-
-void QuantifySettingWindow::on_btnLogClear_clicked() {
-    QMessageBox::StandardButton reply = QMessageBox::question(
-        this, tr("清空日志"), tr("确定要清空日志文件吗？此操作不可恢复。"),
-        QMessageBox::Yes | QMessageBox::No);
-    if (reply == QMessageBox::Yes) {
-        Logger::instance().clear();
-        QMessageBox::information(this, tr("成功"), tr("日志已清空。"));
-    }
-}
-
-void QuantifySettingWindow::on_btnOpenNamelist_clicked() {
-    QString namelistPath =
-        QDir(resolvePathWithKey(m_doc, DirPath)).filePath("namelist.xlsx");
-    QDesktopServices::openUrl(QUrl("file:" + namelistPath, QUrl::TolerantMode));
-}
-
-QStringList QuantifySettingWindow::getBackupSourceItems() const {
-    QStringList items;
-    QString configDir = getConfigDir(m_doc);
-    QDir baseDir(configDir);
-    if (!baseDir.exists())
-        return items;
-
-    items << "config.json";
-    if (QFile::exists(baseDir.filePath("public.pem")))
-        items << "public.pem";
-    if (baseDir.exists(DirTemplate))
-        items << DirTemplate;
-    QString dataDirName = m_doc->get(DirPath).toString();
-    if (!dataDirName.isEmpty()) {
-        QDir dataDir = baseDir.filePath(dataDirName);
-        if (dataDir.exists())
-            items << dataDirName;
-        else
-            Logger::instance().warn("备份: 数据目录不存在: " + dataDirName);
-    } else {
-        Logger::instance().warn("备份: 配置中未指定数据目录 (path)");
-    }
-
-    return items;
-}
-
 QString QuantifySettingWindow::performBackup(const QString &backupRoot) {
     QString configDir = getConfigDir(m_doc);
     if (configDir.isEmpty()) {
@@ -735,8 +697,7 @@ QString QuantifySettingWindow::performBackup(const QString &backupRoot) {
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
     QString backupDir =
         QDir(backupRoot).filePath(QString("QuantifyBackup_%1").arg(timestamp));
-    QDir backupPath(backupDir);
-    if (!backupPath.mkpath(".")) {
+    if (!QDir().mkpath(backupDir)) {
         QMessageBox::warning(this, tr("错误"),
                              tr("无法创建备份目录: %1").arg(backupDir));
         return QString();
@@ -745,16 +706,14 @@ QString QuantifySettingWindow::performBackup(const QString &backupRoot) {
     QStringList items = getBackupSourceItems();
     int totalItems = items.size();
     int current = 0;
+    bool canceled = false, failed = false;
 
     QProgressDialog progress(tr("正在备份..."), tr("取消"), 0, totalItems, this);
     progress.setWindowTitle(tr("备份量化数据"));
     progress.setWindowModality(Qt::WindowModal);
     progress.setMinimumDuration(500);
 
-    bool canceled = false;
-    bool failed = false;
-
-    for (const QString &item : items) {
+    for (const QString &item : std::as_const(items)) {
         if (progress.wasCanceled()) {
             canceled = true;
             break;
@@ -782,7 +741,6 @@ QString QuantifySettingWindow::performBackup(const QString &backupRoot) {
     progress.setValue(totalItems);
 
     if (canceled) {
-        // 删除不完整的备份目录
         QDir(backupDir).removeRecursively();
         return QString();
     }
@@ -791,8 +749,32 @@ QString QuantifySettingWindow::performBackup(const QString &backupRoot) {
                               tr("备份过程中发生错误，请查看日志。"));
         return QString();
     }
-
     return backupDir;
+}
+
+static bool isSameDirectory(const QString &path1, const QString &path2) {
+    QString ap1 = QDir::cleanPath(QDir(path1).absolutePath());
+    QString ap2 = QDir::cleanPath(QDir(path2).absolutePath());
+    return ap1 == ap2;
+}
+
+void QuantifySettingWindow::on_btnRestore_clicked() {
+    if (!m_doc) {
+        QMessageBox::warning(this, tr("错误"), tr("配置文档未初始化。"));
+        return;
+    }
+    QString configDir = getConfigDir(m_doc);
+    QString backupDir =
+        QFileDialog::getExistingDirectory(this, tr("选择备份文件夹"), configDir);
+    if (backupDir.isEmpty())
+        return;
+    QString dataDir = resolvePathWithKey(m_doc, DirPath);
+    if (isSameDirectory(backupDir, dataDir)) {
+        QMessageBox::warning(this, tr("警告"),
+                             tr("备份目录与数据目录相同，请选择其他目录"));
+        return;
+    }
+    performRestore(backupDir);
 }
 
 bool QuantifySettingWindow::performRestore(const QString &backupDir) {
@@ -802,7 +784,6 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
         return false;
     }
 
-    // 验证备份目录有效性：至少包含 config.json 或一个学期目录
     QDir backupPath(backupDir);
     if (!backupPath.exists("config.json") &&
         backupPath.entryList(QDir::Dirs).isEmpty()) {
@@ -821,7 +802,6 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
     if (ret != QMessageBox::Yes)
         return false;
 
-    // 获取备份中的所有项目（文件和目录）
     QFileInfoList entries =
         backupPath.entryInfoList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
     int total = entries.size();
@@ -834,9 +814,8 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
     progress.setMinimumDuration(500);
 
     for (const QFileInfo &entry : std::as_const(entries)) {
-        if (progress.wasCanceled()) {
+        if (progress.wasCanceled())
             return false;
-        }
         progress.setLabelText(tr("正在恢复: %1").arg(entry.fileName()));
         progress.setValue(current++);
         qApp->processEvents();
@@ -845,7 +824,6 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
         QString dstPath = QDir(configDir).filePath(entry.fileName());
 
         if (entry.isDir()) {
-            // 先删除目标目录（避免残留旧文件），再复制
             QDir dstDir(dstPath);
             if (dstDir.exists() && !dstDir.removeRecursively()) {
                 Logger::instance().error("无法删除原有目录: " + dstPath);
@@ -858,7 +836,6 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
                 break;
             }
         } else {
-            // 文件直接覆盖
             if (QFile::exists(dstPath) && !QFile::remove(dstPath)) {
                 Logger::instance().error("无法删除原文件: " + dstPath);
                 failed = true;
@@ -878,31 +855,40 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
                               tr("恢复过程中发生错误，请查看日志。"));
         return false;
     }
-
     emit requestDialogRestart();
     return true;
 }
 
-void QuantifySettingWindow::on_btnRestart_clicked() {
-
-    if (QMessageBox::question(this, tr("提示"), tr("立即重启？")) ==
-        QMessageBox::Yes)
-    emit requestDialogRestart();
+void QuantifySettingWindow::on_btnOpenNamelist_clicked() {
+    QString namelistPath =
+        QDir(resolvePathWithKey(m_doc, DirPath)).filePath("namelist.xlsx");
+    QDesktopServices::openUrl(QUrl("file:" + namelistPath, QUrl::TolerantMode));
 }
 
-void QuantifySettingWindow::updateEncryptionModeCheckbox() {
-    if (!m_doc)
-        return;
-    bool active = Encryptor::hasEncryptedRecords(
-        Quantify::resolvePathWithKey(m_doc, DirPath));
-    ui->checkEncrypt->setChecked(active);
-    ui->checkEncrypt->setToolTip(active ? tr("当前为加密模式")
-                                        : tr("当前为明文模式"));
+void QuantifySettingWindow::on_btnLogOpen_clicked() {
+    QString logPath = QDir(WPath(PData).getModuleFolder(PPlugin->getId()))
+                          .filePath("Quantify/logs/quantify.log");
+    QDesktopServices::openUrl(QUrl("file:" + logPath, QUrl::TolerantMode));
+}
+
+void QuantifySettingWindow::on_btnLogClear_clicked() {
+    QMessageBox::StandardButton reply = QMessageBox::question(
+        this, tr("清空日志"), tr("确定要清空日志文件吗？此操作不可恢复。"),
+        QMessageBox::Yes | QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        Logger::instance().clear();
+        QMessageBox::information(this, tr("成功"), tr("日志已清空。"));
+    }
+}
+
+void QuantifySettingWindow::on_btnRestart_clicked() {
+    if (QMessageBox::question(this, tr("提示"), tr("立即重启？")) ==
+        QMessageBox::Yes)
+        emit requestDialogRestart();
 }
 
 void QuantifySettingWindow::on_btnImportPublicKey_clicked() {
-    if (Encryptor::hasEncryptedRecords(
-            Quantify::resolvePathWithKey(m_doc, DirPath))) {
+    if (Encryptor::hasEncryptedRecords(resolvePathWithKey(m_doc, DirPath))) {
         QMessageBox::information(this, "提示", "请在解除所有加密后再导入");
         return;
     }
@@ -913,16 +899,15 @@ void QuantifySettingWindow::on_btnImportPublicKey_clicked() {
         return;
 
     QString destPath = QDir(configDir).filePath("public.pem");
-    if(destPath==filePath)return;
+    if (destPath == filePath)
+        return;
 
-    // 尝试加载用户选择的公钥文件
     if (!Encryptor::loadPublicKeyFromFile(filePath)) {
         QMessageBox::critical(this, tr("错误"),
                               tr("加载公钥失败，文件格式可能错误。"));
         return;
     }
 
-    // 如果当前有私钥，检查是否匹配
     if (Encryptor::hasPrivateKey() && !Encryptor::keysMatch()) {
         QMessageBox::warning(
             this, tr("警告"),
@@ -930,7 +915,6 @@ void QuantifySettingWindow::on_btnImportPublicKey_clicked() {
         Encryptor::clearPrivateKey();
     }
 
-    // 将导入的公钥保存到插件目录，以便下次启动自动加载
     if (QFile::exists(destPath) && !QFile::remove(destPath)) {
         QMessageBox::warning(this, tr("警告"),
                              tr("无法替换原有公钥文件，请手动处理。"));
@@ -949,16 +933,13 @@ void QuantifySettingWindow::on_btnImportPublicKey_clicked() {
 }
 
 void QuantifySettingWindow::on_btnRefreshKeys_clicked() {
-    // 清除内存中的密钥
     Encryptor::clearPublicKey();
     Encryptor::clearPrivateKey();
 
     QString configDir = getConfigDir(m_doc);
-
-    // 重新扫描U盘加载私钥
-    QFileInfoList drives = QDir::drives();
+    // 扫描U盘加载私钥
     QString privateKeyPath;
-    for (const QFileInfo &drive : std::as_const(drives)) {
+    for (const QFileInfo &drive : QDir::drives()) {
         QString path = drive.absolutePath() + "/Quantify.pem";
         if (QFile::exists(path)) {
             privateKeyPath = path;
@@ -971,19 +952,104 @@ void QuantifySettingWindow::on_btnRefreshKeys_clicked() {
         Logger::instance().info("刷新密钥：未找到U盘私钥");
     }
 
-    // 重新加载公钥（优先配置目录，否则内置）
     Encryptor::loadPublicKeyWithFallback(configDir);
 
-    // 检查匹配性
     if (Encryptor::hasPrivateKey() && Encryptor::hasPublicKey() &&
         !Encryptor::keysMatch()) {
-        QMessageBox::warning(
-            this, tr("警告"),
-            tr("当前加载的私钥与公钥不匹配，功能可能不可用。"));
+        QMessageBox::warning(this, tr("警告"),
+                             tr("当前加载的私钥与公钥不匹配，功能可能不可用。"));
         Encryptor::clearPrivateKey();
     }
 
     updatePrivateKeyStatus();
     updateEncryptionModeCheckbox();
     QMessageBox::information(this, tr("完成"), tr("已刷新密钥状态。"));
+}
+
+void QuantifySettingWindow::on_btnCopySemester_clicked() {
+    if (!m_doc) {
+        QMessageBox::warning(this, tr("错误"), tr("配置文档未初始化"));
+        return;
+    }
+
+    QString pluginPath =
+        WPath().splitPath(PPlugin->getMetaData(Plugin::Path).toString());
+    QString basePath = pluginPath + "Quantify/";
+    QDir baseDir(basePath);
+    if (!baseDir.exists()) {
+        QMessageBox::warning(this, tr("错误"),
+                             tr("Quantify 目录不存在，请先创建示例。"));
+        return;
+    }
+
+    QString srcPath = QFileDialog::getExistingDirectory(
+        this, tr("选择要复制的学期目录"), basePath, QFileDialog::ShowDirsOnly);
+    if (srcPath.isEmpty())
+        return;
+
+    QDir srcDir(srcPath);
+    if (!srcDir.exists()) {
+        QMessageBox::warning(this, tr("错误"), tr("源目录不存在。"));
+        return;
+    }
+
+    if (!srcDir.exists("rule") && !srcDir.exists("record") &&
+        !srcDir.exists("group")) {
+        int ret = QMessageBox::question(
+            this, tr("确认"),
+            tr("所选目录似乎不包含规则/记录子目录，是否仍要复制？"),
+            QMessageBox::Yes | QMessageBox::No);
+        if (ret != QMessageBox::Yes)
+            return;
+    }
+
+    bool ok;
+    QString dstName = QInputDialog::getText(
+        this, tr("复制学期"), tr("请输入新学期目录名（仅字母/数字/下划线）："),
+        QLineEdit::Normal, srcDir.dirName() + "_copy", &ok);
+    if (!ok || dstName.isEmpty())
+        return;
+
+    static QRegularExpression re("^[a-zA-Z0-9_]+$");
+    if (!re.match(dstName).hasMatch()) {
+        QMessageBox::warning(this, tr("错误"),
+                             tr("目录名只能包含字母、数字和下划线。"));
+        return;
+    }
+
+    QString dstPath = baseDir.filePath(dstName);
+    if (QDir(dstPath).exists()) {
+        int ret = QMessageBox::question(
+            this, tr("目标已存在"), tr("目录 %1 已存在，是否覆盖？").arg(dstName),
+            QMessageBox::Yes | QMessageBox::No);
+        if (ret != QMessageBox::Yes)
+            return;
+        if (!QDir(dstPath).removeRecursively()) {
+            QMessageBox::critical(this, tr("错误"), tr("无法删除原有目录。"));
+            return;
+        }
+    }
+
+    QApplication::setOverrideCursor(Qt::WaitCursor);
+    bool copySuccess = copyDirectoryRecursively(srcPath, dstPath, true);
+    QApplication::restoreOverrideCursor();
+
+    if (!copySuccess) {
+        QMessageBox::critical(this, tr("错误"), tr("复制失败，请检查日志。"));
+        return;
+    }
+
+    m_doc->set(Quantify::Consts::DirPath, "./" + dstName);
+    QString configPath =
+        WPath(PData).getModuleFolder(PPlugin->getId()) + "Quantify/config.json";
+    if (!m_doc->save(configPath)) {
+        QMessageBox::critical(this, tr("错误"),
+                              tr("保存配置文件失败，请手动切换学期目录。"));
+    } else {
+        QMessageBox::information(this, tr("成功"),
+                                 tr("学期目录已复制：\n从 %1\n到 "
+                                    "%2\n\n配置已自动切换到新目录，即将重启。")
+                                     .arg(srcPath, dstPath));
+    }
+    emit requestDialogRestart();
 }

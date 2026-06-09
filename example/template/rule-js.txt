@@ -1,0 +1,13 @@
+function commonHandler(ctx) {
+    ctx.record.t += 1;
+    ctx.record.s += 0.5;
+    return ctx;
+}
+
+({
+    reason: "commonRule",
+    reason_ch: "通用规则",
+    daily: commonHandler,
+    weekly: commonHandler,
+    termly: commonHandler
+})

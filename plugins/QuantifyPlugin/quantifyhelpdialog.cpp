@@ -2,8 +2,8 @@
  * @file quantifyhelptwindow.cpp
  * @brief 帮助对话框
  * @author howdy213
- * @date 2026-05-16
- * @version 2.0.0
+ * @date 2026-06-09
+ * @version 2.1.1
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -179,16 +179,26 @@ void QuantifyHelpDialog::setupIntroTab() {
         return;
 
     QString content = R"(
-        <h2>量化插件功能介绍</h2>
-        <p>量化插件用于记录和管理学生日常行为量化评分，支持多种规则引擎（原生语法和 JavaScript），并提供直观的显示和编辑界面。</p>
-        <h3>主要特性：</h3>
+<h2>量化插件功能介绍</h2>
+<p>量化插件用于记录和管理学生日常行为量化评分，支持多种规则引擎（原生语法和 JavaScript），并提供直观的显示和编辑界面。</p>
+
+<h3>主要特性</h3>
+<ul>
+    <li><b>学生与分组管理</b>：通过学生名单 Excel 文件定义学生缩写与中文名，支持创建任意多个分组，便于批量操作。</li>
+    <li><b>多周期自动汇总</b>：支持每日、每周、每学期三级周期，周期结束时自动调用规则计算累计分数。</li>
+    <li><b>灵活的规则引擎</b>：
         <ul>
-            <li>支持学生和组的管理</li>
-            <li>每日/每周/每学期自动汇总评分</li>
-            <li>可自定义量化规则（原生语法或 JS）</li>
-            <li>记录查看、筛选、导出 Excel</li>
-            <li>配置文件灵活设置路径和引擎类型</li>
+            <li><b>原生语法</b>：简洁的条件-动作表达式，适合常规量化场景。</li>
+            <li><b>JavaScript 引擎</b>：提供完整的编程能力，可实现复杂逻辑（如分段扣分、复杂条件判断等）。</li>
         </ul>
+    </li>
+    <li><b>记录文件导入</b>：通过简单文本格式记录每次量化事件（迟到、表扬等），支持注释、组排除语法等。</li>
+    <li><b>文件编辑器</b>：内置语法验证，错误提示，模板创建、快速录入等功能。</li>
+    <li><b>直观的展示界面</b>：表格形式展示所有学生的每周评分和总分，支持排序、平均计算、导出 Excel、双击查看详情。</li>
+    <li><b>配置文件驱动</b>：所有路径、引擎类型等均可通过 config.json 灵活配置。</li>
+    <li><b>示例一键生成</b>：内置“新建示例”功能，快速生成完整目录结构和示例文件，方便上手。</li>
+    <li><b>安全</b>：允许选择加密来阻止他人编辑，提供简短安全标识判断文件是否被篡改。</li>
+</ul>
     )";
     browser->setHtml(wrapHtml(content));
 }
@@ -211,7 +221,7 @@ void QuantifyHelpDialog::setupQuickStartTab() {
             <li><b>js</b>（JavaScript）：适合复杂计算，需要一定编程基础。</li>
         </ul>
         <p>选择后程序会自动在插件目录下生成 <code>Quantify/config.json</code> 配置文件以及示例的 <code>rule</code>、<code>record</code> 等空文件夹。你可以直接使用示例数据继续体验。</p>
-        <p>也可以导入更完整的示例数据以看到最终效果</p>
+        <p>也可以导入更完整的示例数据以看到最终效果，已经包含在数据目录下，前往 <b>设置 - 还原数据</b> ，选择 <code>example</code> 或将 <b>操行路径</b> 改为 <code>./example</code> ，之后 <b>保存</b></p>
         <h3>2. 添加学生名单</h3>
         <p>在设置窗口中点击 <b>名单 - 打开</b>，程序会尝试打开数据目录下的 <code>namelist.xlsx</code> 文件。若文件不存在，可以用 Excel 新建一个，格式要求：</p>
         <ul>
@@ -221,12 +231,12 @@ void QuantifyHelpDialog::setupQuickStartTab() {
         <p>保存并关闭 Excel 后，回到<b>查看 - 刷新</b>插件会自动读取名单。</p>
 
         <h3>3. 添加量化规则</h3>
-        <p>切换到 <b>编辑</b> 标签页，在顶部的文件类型下拉框中选择 <b>rule</b>，然后在旁边的输入框中输入规则名（英文，例如 <code>late</code>），点击右侧的 <b>新建/打开</b> 按钮。</p>
+        <p>切换到 <b>编辑</b> 标签页，在顶部的文件类型下拉框中选择 <b>rule</b>，然后在旁边的输入框中输入规则名（英文，例如 <code>late</code>）。</p>
         <p>如果你不熟悉规则语法，可以点击 <b>模板</b> 按钮快速填入示例。
         <p>编辑完成后，点击 <b>检查</b> 验证语法，确认无误后点击 <b>保存</b>。至此规则就配置好了。</p>
 
         <h3>4. 添加量化记录</h3>
-        <p>同样在 <b>编辑</b> 标签页，将文件类型下拉框切换为 <b>record</b>。文件名建议遵循 <code>日期-序号</code> 的格式，例如 <code>20260531-1</code>（表示 2026 年 5 月 31 日的第一条记录）。点击 <b>新建/打开</b>。</p>
+        <p>同样在 <b>编辑</b> 标签页，将文件类型下拉框切换为 <b>record</b>。文件名遵循 <code>日期-序号</code> 的格式，例如 <code>20260531-1</code>（表示 2026 年 5 月 31 日的第一条记录）。</p>
         <p>记录文件内容由三部分组成：</p>
         <ul>
             <li><b>第一行</b>：记录类型（daily / weekly / termly）</li>
@@ -355,6 +365,12 @@ ALL
 ALL
 [homework]
 ALL</pre>
+        <p><b>说明：</b></p>
+        <ul>
+            <li>日历中日期会显示三种颜色，代表当天有几个 <code>.record</code> 文件。</li>
+            <li>双击日历日期可打开当天第一个记录文件；日历下方的 1、2、3 按钮可快速打开该日对应的三个记录文件（需先点击日历选中日期）。</li>
+            <li>如果未保存被覆盖，可使用 <code>Ctrl+Z</code> 撤销。</li>
+        </ul>
     )";
     browser->setHtml(wrapHtml(content));
 }
@@ -456,27 +472,59 @@ t1&gt;0&amp;s2&lt;2:s+0.2
             <li>函数必须返回 <code>ctx</code> 对象（或其修改后的副本）。</li>
         </ul>
 
-        <p>示例（集会加分规则）：</p>
+        <p><b>示例1：通用规则（每日加次数和分数）</b></p>
+        <pre>function commonHandler(ctx) {
+    ctx.record.t += 1;
+    ctx.record.s += 0.5;
+    return ctx;
+}
+({
+    reason: "commonRule",
+    reason_ch: "通用规则",
+    daily: commonHandler,
+    weekly: commonHandler,
+    termly: commonHandler
+})</pre>
+
+        <p><b>示例2：多行为规则（每日累加，每周根据次数额外加分，学期末输出总评）</b></p>
         <pre>({
-    reason: 'assembly+',
-    reason_ch: '集会',
+    reason: "multiBehavior",
+    reason_ch: "多行为规则",
     daily: function(ctx) {
         ctx.record.t += 1;
-        ctx.record.s += 0.1;
-        if(ctx.record.t1 > 1.5){
-            ctx.log.level = "warning";
-            ctx.log.message = "一天不能集会两次";
-        }
+        ctx.record.s += 0.2;
         return ctx;
     },
     weekly: function(ctx) {
-        // 无规则
+        const lateCount = ctx.record.t2;
+        if (lateCount >= 3) {
+            ctx.record.s += 0.1;
+        }
         return ctx;
     },
     termly: function(ctx) {
-        // 无规则
+        const totalScore = ctx.record.s3;
+        const formatted = totalScore.toFixed(2);
+        if (totalScore >= 0.5) {
+            ctx.log.message = `本规则学期总评：优秀(${formatted})`;
+        } else if (totalScore >= 0.3) {
+            ctx.log.message = `本规则学期总评：合格(${formatted})`;
+        } else {
+            ctx.log.message = `本规则学期总评：待改进(${formatted})`;
+        }
+        ctx.log.level = "info";
         return ctx;
-    },
+    }
+})</pre>
+
+        <p><b>示例3：自定义规则（custom）</b><br>
+        <code>custom</code> 规则是一个特殊规则，其记录文件中的分数会直接加减总分，不经过规则引擎计算。但仍需创建 <code>custom.rule</code> 文件，内容可为最简单的占位：</p>
+        <pre>({
+    reason: 'custom',
+    reason_ch: '自定义',
+    daily: function(record) { return record; },
+    weekly: function(record) { return record; },
+    termly: function(record) { return record; }
 })</pre>
     )";
     jsBrowser->setHtml(wrapHtml(jsContent));
@@ -531,15 +579,13 @@ void QuantifyHelpDialog::setupConfigTab() {
     "path": "数据目录路径",
     "addon": "附加程序路径（可选）",
     "engine": "规则引擎类型：native 或 js",
-    "template": "模板文件路径（可选）",
-    "encryption": true/false
+    "template": "模板文件路径（可选）"
 }</pre>
         <ul>
             <li><b>path</b>：存放规则文件、记录文件、组文件以及 <code>namelist.xlsx</code> 的目录。可使用相对路径（相对于配置文件所在目录）或绝对路径。</li>
             <li><b>addon</b>：点击“工具”按钮时执行的程序路径（如打开外部编辑器或统计工具）。</li>
             <li><b>engine</b>：选择规则引擎，可选 <code>native</code>（原生语法）或 <code>js</code>（JavaScript）。修改后需重启插件生效。</li>
             <li><b>template</b>：模板文件目录，用于“模板”按钮加载预设内容。模板文件名分别为 <code>record.txt</code>（记录模板）、<code>rule-native.txt</code>（原生规则模板）和 <code>rule-js.txt</code>（JS规则模板）。</li>
-            <li><b>encryption</b>：是否启用记录文件加密（<code>true</code> 启用，<code>false</code> 禁用）。启用后，新保存的 <code>.record</code> 文件将使用 AES-256-GCM 加密，需要插入包含私钥的 U 盘才能正常读写。</li>
         </ul>
         <p><b>路径注意事项：</b>路径中的反斜杠请使用 <code>/</code> 或双反斜杠 <code>\\</code>。相对路径基于 <code>config.json</code> 所在目录。</p>
         <p><b>加密相关：</b>若启用加密，请先在“设置”页面生成密钥对至 U 盘。插件启动时会自动检测 U 盘根目录下的 <code>Quantify.pem</code> 私钥文件。未插入 U 盘或私钥无效时，无法加密新记录，但可以解密已有加密文件。</p>
@@ -580,10 +626,10 @@ void QuantifyHelpDialog::setupAboutTab() {
     browser->setOpenExternalLinks(true);
     QString content = R"(
         <h2>量化插件 QuantifyPlugin</h2>
-        <p><b>版本：</b>2.0.0</p>
+        <p><b>版本：</b>2.1.1</p>
         <p><b>作者：</b>howdy213</p>
         <p><b>日期：</b>2026-05-31</p>
-        <p><b>许可证：</b>GNU General Public License v3.0</p>
+        <p><b>许可证：</b>GNU Lesser General Public License v3.0</p>
         <p>本插件用于学生日常行为量化评分，支持多种规则引擎，提供直观的显示和编辑界面。</p>
         <p>更多信息请参阅 <a href='https://github.com/howdy213/QuantifyPlugin'>GitHub 仓库</a>。</p>
     )";

@@ -1,0 +1,9 @@
+weekly
+
+[multiBehavior]
+ALL
+
+[commonRule]
+group1
+// 上述写法和直接 zs ls 是有区别的
+// 见详细查看对话框中的原因，有范围

@@ -2,8 +2,8 @@
  * @file classrule.cpp
  * @brief 考勤逻辑管理类
  * @author howdy213
- * @date 2026-05-16
- * @version 2.0.0
+ * @date 2026-06-09
+ * @version 2.1.1
  *
  * Copyright (C) 2025-2026 howdy213
  *
@@ -435,9 +435,10 @@ void ClassRule::clear(RecordType rt) {
                 rec.t2 = 0;
                 rec.s2 = 0.0;
                 break;
-            case TERMLY:
-                rec.t3 = 0;
-                rec.s3 = 0.0;
+            //case TERMLY:
+            //    rec.t3 = 0;
+            //    rec.s3 = 0.0;
+            //不注释会清空总分
                 break;
             default:
                 break;

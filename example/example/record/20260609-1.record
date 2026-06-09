@@ -1,0 +1,24 @@
+daily
+
+[multiBehavior]
+zs            // 这是注释
+zs            // 一个人可以出现多次
+ls
+ALL           // 默认的组，代表全部
+
+[custom]      // 自定义规则
+ww   +0.5     // +,-不能省略
+group1 +1.0  这是备注
+
+[commonRule][ 宏]// 会自动附加到后面，所以需要在前面打上空格
+zs
+ww
+group1-zs     // 这是组排除语法
+
+// 等价于
+// [commonRule]
+// zs 宏      // 宏变成备注了
+// ww 宏
+// group1-zs
+//            这里正下方是文件名称
+//            对于record文件，格式为<年><月><日>-<序号>

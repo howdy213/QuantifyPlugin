@@ -1,0 +1,38 @@
+({
+    reason: "multiBehavior",
+    reason_ch: "多行为规则",
+
+    daily: function(ctx) {
+        ctx.record.t += 1;
+        ctx.record.s += 0.2;
+        return ctx;
+    },
+
+    // 每周规则：每周结算时根据本周次数（t2）给予额外加/扣分
+    // 也可以把逻辑写在daily中，达到一样的效果
+    weekly: function(ctx) {
+        const lateCount = ctx.record.t2;
+        if (lateCount >= 3) {
+            ctx.record.s += 0.1;
+        }
+        // 注意：每周结束时系统会清空 t2/s2
+        return ctx;
+    },
+
+    // 每学期规则：学期末统计总分，输出总评日志
+    // 这里的所有变量都是当前规则的分数
+    termly: function(ctx) {
+        const totalScore = ctx.record.s3;
+        const formatted = totalScore.toFixed(2);  // 保留两位小数
+    
+        if (totalScore >= 0.5) {
+            ctx.log.message = `本规则学期总评：优秀(${formatted})`; // 展示了log的用法
+        } else if (totalScore >= 0.3) {
+            ctx.log.message = `本规则学期总评：合格(${formatted})`;
+        } else {
+            ctx.log.message = `本规则学期总评：待改进(${formatted})`;
+        }
+        ctx.log.level = "info";// 支持 info/warning/error
+        return ctx;
+    }
+})
