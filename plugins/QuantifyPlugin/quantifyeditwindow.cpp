@@ -95,6 +95,19 @@ void QuantifyEditWindow::initialize(
         connect(displayWnd, &QuantifyDisplayWindow::recordRefresh, this,
                 &QuantifyEditWindow::onUpdateSecurityInfo);
     }
+
+    if (this->ui->textEdit->toPlainText().isEmpty()) {
+        QString defaultPath = Quantify::resolvePathWithKey(doc, DirTemplate) + "/default.txt";
+        QFile file(defaultPath);
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QTextStream stream(&file);
+            QString content = stream.readAll();
+            if (!content.isEmpty()) {
+                replaceTextEditContent(content);
+            }
+            file.close();
+        }
+    }
 }
 
 void QuantifyEditWindow::setClassRecord(ClassRecord *cr) {

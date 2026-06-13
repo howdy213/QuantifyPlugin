@@ -31,33 +31,40 @@
 #include "classrule.h"
 #include "grouprecord.h"
 
-class ClassRecord
-{
+class ClassRecord {
 public:
     ClassRecord(QString folder, RuleEngine engine = RuleEngine::Native);
     ~ClassRecord();
+
 public:
-    bool addRecord(QString student,QString reason,Record rec);
-    CheckResult isRecordValid(const QString& record);
-    CheckResult isRuleValid(const QString& rule);
-    CheckResult isGroupFileValid(const QString& file);
+    bool addRecord(QString student, QString reason, Record rec);
+    CheckResult isRecordValid(const QString &record);
+    CheckResult isRuleValid(const QString &rule);
+    CheckResult isGroupFileValid(const QString &file);
     int index(QString abbr, QString ch);
     unsigned int week();
-    Record getRecord(QString name,QString rule);
+    Record getRecord(QString name, QString rule);
     Record getScore(QString name);
+    const QVector<QPair<int, int>> &getSummaryRanges() const;
     void clear();
     void refresh();
-    QMap<QString,StudentRecord>students;
-    QMap<QString,GroupRecord>groups;
+    QMap<QString, StudentRecord> students;
+    QMap<QString, GroupRecord> groups;
+
+private:
+    void readSummaryFile();
+    QVector<QPair<int, int>> m_summaryRanges;
+
 private:
     void readStudentFile();
     void readGroupFile();
     void readRuleFile();
     void readRecordFile();
+
 private:
     friend ClassRule;
-    unsigned int weekCount=0;
-    QString folder="";
+    unsigned int weekCount = 0;
+    QString folder = "";
     ClassRule rules;
     RuleEngine engine;
 };

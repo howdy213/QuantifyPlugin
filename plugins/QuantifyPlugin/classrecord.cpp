@@ -174,6 +174,10 @@ Record ClassRecord::getScore(QString name) {
         return RuleBase::empty;
     return it->getScore();
 }
+
+const QVector<QPair<int, int> > &ClassRecord::getSummaryRanges() const {
+    return m_summaryRanges;
+}
 ///
 /// \brief ClassRecord::clear
 ///
@@ -192,6 +196,31 @@ void ClassRecord::refresh() {
     readGroupFile();
     readRuleFile();
     readRecordFile();
+    readSummaryFile();
+}
+
+void ClassRecord::readSummaryFile()
+{
+    m_summaryRanges.clear();
+    QString summaryPath = QDir(folder).filePath(DirRecord + "/summary.txt");
+    QFile file(summaryPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine().trimmed();
+        if (line.isEmpty()) continue;
+        QStringList parts = line.split('-');
+        if (parts.size() == 2) {
+            bool ok1, ok2;
+            int start = parts[0].toInt(&ok1);
+            int end = parts[1].toInt(&ok2);
+            if (ok1 && ok2 && start >= 1 && end >= start) {
+                m_summaryRanges.append({start, end});
+            }
+        }
+    }
+    file.close();
 }
 ///
 /// \brief ClassRecord::readStudentFile
