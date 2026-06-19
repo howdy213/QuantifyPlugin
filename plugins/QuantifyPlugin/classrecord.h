@@ -63,7 +63,7 @@ private:
 
 private:
     friend ClassRule;
-    unsigned int weekCount = 0;
+    unsigned int weekCount = 1;
     QString folder = "";
     ClassRule rules;
     RuleEngine engine;

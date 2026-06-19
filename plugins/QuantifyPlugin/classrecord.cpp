@@ -182,7 +182,7 @@ const QVector<QPair<int, int> > &ClassRecord::getSummaryRanges() const {
 /// \brief ClassRecord::clear
 ///
 void ClassRecord::clear() {
-    weekCount = 0;
+    weekCount = 1;
     groups.clear();
     students.clear();
     rules.clear();

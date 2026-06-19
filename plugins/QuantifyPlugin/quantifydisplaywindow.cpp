@@ -32,8 +32,8 @@
 #include "QXlsx.h"
 #include "WECore/metadata/WMetaDocument.h"
 #include "quantify.h"
-#include "quantifydisplaywindow.h"
 #include "quantifydisplayviewdialog.h"
+#include "quantifydisplaywindow.h"
 #include "quantifyeditwindow.h"
 #include "ui_quantifydisplaywindow.h"
 
@@ -44,7 +44,7 @@ const double SCORE_SCALE = 10000.0;
 /// \param parent
 ///
 QuantifyDisplayWindow::QuantifyDisplayWindow(QWidget *parent)
-    : QWidget(parent),ui(new Ui::QuantifyDisplayWindow) {
+    : QWidget(parent), ui(new Ui::QuantifyDisplayWindow) {
     ui->setupUi(this);
     ui->quantifyTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->quantifyTable->verticalHeader()->setSectionResizeMode(QHeaderView::Fixed);
@@ -57,9 +57,9 @@ QuantifyDisplayWindow::QuantifyDisplayWindow(QWidget *parent)
 /// \param components
 /// \param ui
 ///
-void QuantifyDisplayWindow::initialize(const Quantify::QuantifyComponents& components,
-                                       const Quantify::QuantifyUI& ui)
-{
+void QuantifyDisplayWindow::initialize(
+    const Quantify::QuantifyComponents &components,
+    const Quantify::QuantifyUI &ui) {
     m_cr = components.classRecord;
     m_doc = components.config;
     m_editWnd = ui.editWindow;
@@ -115,8 +115,9 @@ void QuantifyDisplayWindow::refresh() {
     }
     for (int idx = 0; idx < summaryCount; ++idx) {
         int start = ranges[idx].first;
-        int end   = ranges[idx].second;
-        createCol(col++, QString("%1-%2").arg(start).arg(end), headerFont, headerColor);
+        int end = ranges[idx].second;
+        createCol(col++, QString("%1-%2").arg(start).arg(end), headerFont,
+                  headerColor);
     }
     createCol(col, "总分", headerFont, headerColor);
 
@@ -131,13 +132,15 @@ void QuantifyDisplayWindow::refresh() {
     int currentMode = ui->comboType->currentIndex(); // 0:个人, 1:小组
     bool useAverage = ui->checkAverage->isChecked();
 
-    int rowCount = (currentMode == 0) ? m_cr->students.size() : m_cr->groups.size();
+    int rowCount =
+        (currentMode == 0) ? m_cr->students.size() : m_cr->groups.size();
     ui->quantifyTable->setRowCount(rowCount);
 
     int row = 0;
     if (currentMode == 0) {
         // 个人模式
-        for (auto it = m_cr->students.constBegin(); it != m_cr->students.constEnd(); ++it, ++row) {
+        for (auto it = m_cr->students.constBegin(); it != m_cr->students.constEnd();
+             ++it, ++row) {
             const StudentRecord &student = it.value();
             QVector<Record> weekly = student.weekly;
             double total = student.getScore().s3;
@@ -153,12 +156,12 @@ void QuantifyDisplayWindow::refresh() {
             }
 
             QVector<double> summaryValues = computeSummaryValues(weekly);
-            // 调用带汇总列的重载
             createRow(row, student.name_ch, weekly, total, summaryValues);
         }
     } else {
         // 小组模式
-        for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd(); ++git, ++row) {
+        for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd();
+             ++git, ++row) {
             const GroupRecord &group = git.value();
             int memberCount = 0;
             double groupTotal = 0.0;
@@ -166,7 +169,8 @@ void QuantifyDisplayWindow::refresh() {
 
             for (const QString &member : group.members) {
                 auto sit = m_cr->students.constFind(member);
-                if (sit == m_cr->students.constEnd()) continue;
+                if (sit == m_cr->students.constEnd())
+                    continue;
                 const StudentRecord &student = sit.value();
                 groupTotal += student.getScore().s3;
                 memberCount++;
@@ -240,8 +244,7 @@ void QuantifyDisplayWindow::createCol(int col, const QString &title,
 /// \param summaryValues
 ///
 void QuantifyDisplayWindow::createRow(int row, const QString &name,
-                                      const QVector<Record> &rec,
-                                      float total,
+                                      const QVector<Record> &rec, float total,
                                       const QVector<double> &summaryValues) {
     // 姓名列
     auto *nameItem = new QTableWidgetItem(name);
@@ -252,7 +255,7 @@ void QuantifyDisplayWindow::createRow(int row, const QString &name,
     int col = 1;
 
     // 每周列
-    for (int i = 0; i < rec.size(); ++i) {
+    for (int i = 0; i < rec.size(); i++) {
         double scaled = qRound(rec[i].s2 * SCORE_SCALE) / SCORE_SCALE;
         auto *cellItem = new QTableWidgetItem(QString::number(scaled));
         cellItem->setTextAlignment(Qt::AlignHCenter | Qt::AlignVCenter);
@@ -274,15 +277,15 @@ void QuantifyDisplayWindow::createRow(int row, const QString &name,
     ui->quantifyTable->setItem(row, col, totalItem);
 }
 
-QVector<double> QuantifyDisplayWindow::computeSummaryValues(const QVector<Record> &weekly) const
-{
+QVector<double> QuantifyDisplayWindow::computeSummaryValues(
+    const QVector<Record> &weekly) const {
     QVector<double> values;
-    const auto& ranges = m_cr->getSummaryRanges();
-    for (const auto& range : ranges) {
+    const auto &ranges = m_cr->getSummaryRanges();
+    for (const auto &range : ranges) {
         double sum = 0.0;
-        int start = range.first - 1;   // 转换为0基索引
-        int end   = range.second - 1;
-        for (int w = start; w <= end && w < weekly.size(); ++w) {
+        int start = range.first; // 1基索引
+        int end = range.second;
+        for (int w = start-1; w <= end-1 && w < weekly.size(); ++w) {
             sum += weekly[w].s2;
         }
         values.append(sum);
@@ -324,27 +327,29 @@ void QuantifyDisplayWindow::on_btnExport_clicked() {
 ///
 /// \brief QuantifyDisplayWindow::on_btnRefresh_clicked
 ///
-void QuantifyDisplayWindow::on_btnRefresh_clicked() {
-    refresh();
-}
+void QuantifyDisplayWindow::on_btnRefresh_clicked() { refresh(); }
 ///
 /// \brief QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked
 /// \param row
 /// \param column
-void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row, int column) {
-    int mode = ui->comboType->currentIndex();                 // 0=个人，1=小组
+void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row,
+                                                               int column) {
+    int mode = ui->comboType->currentIndex(); // 0=个人，1=小组
     int weekCount = m_cr->week();
-    const auto& ranges = m_cr->getSummaryRanges();
-    int totalCols = 1 + weekCount + ranges.size() + 1;        // 姓名 + 每周列 + 汇总列 + 总分列
+    const auto &ranges = m_cr->getSummaryRanges();
+    int totalCols =
+        1 + weekCount + ranges.size() + 1; // 姓名 + 每周列 + 汇总列 + 总分列
 
     // 姓名列：显示组信息或成员列表
     if (column == 0) {
-        QString displayName = ui->quantifyTable->item(row, 0)->text();  // 界面显示的中文名或组名
+        QString displayName =
+            ui->quantifyTable->item(row, 0)->text(); // 界面显示的中文名或组名
         if (mode == 0) {
             // 个人模式：显示该学生所属的组（中文组名）
             // 1. 根据中文名查找学生英文缩写
             QString studentAbbr;
-            for (auto it = m_cr->students.constBegin(); it != m_cr->students.constEnd(); ++it) {
+            for (auto it = m_cr->students.constBegin();
+                 it != m_cr->students.constEnd(); ++it) {
                 if (it.value().name_ch == displayName) {
                     studentAbbr = it.key();
                     break;
@@ -356,17 +361,21 @@ void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row, int colu
             }
             // 2. 获取所属组（排除 ALL）
             QStringList groups;
-            for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd(); ++git) {
-                if (git.key() == "ALL") continue;
+            for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd();
+                 ++git) {
+                if (git.key() == "ALL")
+                    continue;
                 if (git.value().members.contains(studentAbbr))
-                    groups.append(git.value().name_ch);  // 中文组名
+                    groups.append(git.value().name_ch); // 中文组名
             }
-            QString msg = groups.isEmpty() ? tr("该学生未加入任何组") : tr("所属组: ") + groups.join("、");
+            QString msg = groups.isEmpty() ? tr("该学生未加入任何组")
+                                           : tr("所属组: ") + groups.join("、");
             QMessageBox::information(this, tr("组信息"), msg);
         } else {
             // 小组模式：显示成员列表
             QString groupKey;
-            for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd(); ++git) {
+            for (auto git = m_cr->groups.constBegin(); git != m_cr->groups.constEnd();
+                 ++git) {
                 if (git.value().name_ch == displayName) {
                     groupKey = git.key();
                     break;
@@ -383,7 +392,7 @@ void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row, int colu
                 if (sit != m_cr->students.constEnd())
                     memberChineseNames.append(sit->name_ch);
                 else
-                    memberChineseNames.append(abbr);  // 降级显示英文
+                    memberChineseNames.append(abbr); // 降级显示英文
             }
             QString msg = tr("成员列表 (%1 人):\n").arg(memberChineseNames.size()) +
                           memberChineseNames.join("、");
@@ -393,7 +402,8 @@ void QuantifyDisplayWindow::on_quantifyTable_cellDoubleClicked(int row, int colu
     }
 
     // 收集要显示的记录
-    QVector<RecordInfo> displayInfo = collectRecordsForColumn(mode, row, column, weekCount, ranges);
+    QVector<RecordInfo> displayInfo =
+        collectRecordsForColumn(mode, row, column, weekCount, ranges);
     QString displayName = getDisplayNameForDoubleClick(mode, row);
 
     if (displayInfo.isEmpty()) {
@@ -434,23 +444,26 @@ void QuantifyDisplayWindow::setClassRecord(ClassRecord *cr) {
     refresh(); // 重新加载数据并刷新表格
 }
 
-QStringList QuantifyDisplayWindow::getGroupsOfStudent(const QString &studentAbbr) const {
+QStringList
+QuantifyDisplayWindow::getGroupsOfStudent(const QString &studentAbbr) const {
     QStringList groups;
-    for (auto it = m_cr->groups.constBegin(); it != m_cr->groups.constEnd(); ++it) {
+    for (auto it = m_cr->groups.constBegin(); it != m_cr->groups.constEnd();
+         ++it) {
         if (it.value().members.contains(studentAbbr))
             groups.append(it.value().name_ch);
     }
     return groups;
 }
 
-void QuantifyDisplayWindow::on_btnModifySummaryFile_clicked()
-{
+void QuantifyDisplayWindow::on_btnModifySummaryFile_clicked() {
     if (!m_doc) {
         QMessageBox::warning(this, tr("错误"), tr("配置未加载"));
         return;
     }
 
-    QString recordDir = Quantify::resolvePathWithKey(m_doc, Quantify::Consts::DirPath) + "/" + Quantify::Consts::DirRecord;
+    QString recordDir =
+        Quantify::resolvePathWithKey(m_doc, Quantify::Consts::DirPath) + "/" +
+                        Quantify::Consts::DirRecord;
     QString summaryPath = QDir(recordDir).filePath("summary.txt");
 
     // 读取现有内容
@@ -490,7 +503,8 @@ void QuantifyDisplayWindow::on_btnModifySummaryFile_clicked()
         QString newContent = textEdit->toPlainText();
         QFile outFile(summaryPath);
         if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-            QMessageBox::warning(&dlg, tr("错误"), tr("无法写入文件: %1").arg(summaryPath));
+            QMessageBox::warning(&dlg, tr("错误"),
+                                 tr("无法写入文件: %1").arg(summaryPath));
             return;
         }
         QTextStream out(&outFile);
@@ -503,45 +517,55 @@ void QuantifyDisplayWindow::on_btnModifySummaryFile_clicked()
     if (dlg.exec() == QDialog::Accepted) {
         // 刷新显示，重新加载汇总范围并刷新表格
         refresh();
-        QMessageBox::information(this, tr("成功"), tr("汇总文件已更新，表格已刷新。"));
+        QMessageBox::information(this, tr("成功"),
+                                 tr("汇总文件已更新，表格已刷新。"));
     }
 }
-QString QuantifyDisplayWindow::getDisplayNameForDoubleClick(int mode, int row) const {
+QString QuantifyDisplayWindow::getDisplayNameForDoubleClick(int mode,
+                                                            int row) const {
     // 直接获取表格中显示的名称即可
     return ui->quantifyTable->item(row, 0)->text();
 }
 
-QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForWeekOrTotal(int mode, int row, int column, int weekCount) const {
+QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForWeekOrTotal(
+    int mode, int row, int column, int weekCount) const {
     QVector<RecordInfo> result;
-    bool isTotalColumn = (column == weekCount + 1 + m_cr->getSummaryRanges().size()); // 总分列索引
+    bool isTotalColumn =
+        (column == 1+ weekCount + m_cr->getSummaryRanges().size()); // 总分列索引
 
     if (mode == 0) { // 个人模式
         QString name = ui->quantifyTable->item(row, 0)->text();
-        auto it = std::find_if(m_cr->students.constBegin(), m_cr->students.constEnd(),
-                               [&name](const StudentRecord& sr) { return sr.name_ch == name; });
-        if (it == m_cr->students.constEnd()) return result;
+        auto it = std::find_if(
+            m_cr->students.constBegin(), m_cr->students.constEnd(),
+            [&name](const StudentRecord &sr) { return sr.name_ch == name; });
+        if (it == m_cr->students.constEnd())
+            return result;
         if (isTotalColumn) {
             result = it->info;
         } else {
-            int weekIdx = column - 1; // 普通周列（从0基索引）
+            int weekIdx = column; // 普通周列（从1基索引）
             result = it->getWeeklyInfo(weekIdx);
         }
     } else { // 小组模式
         QString groupName = ui->quantifyTable->item(row, 0)->text();
         auto git = std::find_if(m_cr->groups.constBegin(), m_cr->groups.constEnd(),
-                                [&groupName](const GroupRecord& gr) { return gr.name_ch == groupName; });
-        if (git == m_cr->groups.constEnd()) return result;
-        for (const QString& member : git->members) {
+                                [&groupName](const GroupRecord &gr) {
+                                    return gr.name_ch == groupName;
+        });
+        if (git == m_cr->groups.constEnd())
+            return result;
+        for (const QString &member : git->members) {
             auto sit = m_cr->students.constFind(member);
-            if (sit == m_cr->students.constEnd()) continue;
+            if (sit == m_cr->students.constEnd())
+                continue;
             QVector<RecordInfo> memberInfo;
             if (isTotalColumn) {
                 memberInfo = sit->info;
             } else {
-                int weekIdx = column - 1;
+                int weekIdx = column;
                 memberInfo = sit->getWeeklyInfo(weekIdx);
             }
-            for (RecordInfo& info : memberInfo) {
+            for (RecordInfo &info : memberInfo) {
                 info.memberName = sit->name_ch; // 标记成员姓名
                 result.append(info);
             }
@@ -550,19 +574,23 @@ QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForWeekOrTotal(int mode
     return result;
 }
 
-QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForSummary(int mode, int row, int summaryIndex,
-                                                                    const QVector<QPair<int,int>>& ranges) const {
+QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForSummary(
+    int mode, int row, int summaryIndex,
+    const QVector<QPair<int, int>> &ranges) const {
     QVector<RecordInfo> result;
-    if (summaryIndex < 0 || summaryIndex >= ranges.size()) return result;
-    int startWeek = ranges[summaryIndex].first -1;
-    int endWeek   = ranges[summaryIndex].second -1;
+    if (summaryIndex < 0 || summaryIndex >= ranges.size())
+        return result;
+    int startWeek = ranges[summaryIndex].first;
+    int endWeek = ranges[summaryIndex].second;
 
     if (mode == 0) { // 个人模式
         QString name = ui->quantifyTable->item(row, 0)->text();
-        auto it = std::find_if(m_cr->students.constBegin(), m_cr->students.constEnd(),
-                               [&name](const StudentRecord& sr) { return sr.name_ch == name; });
-        if (it == m_cr->students.constEnd()) return result;
-        for (const RecordInfo& info : it->info) {
+        auto it = std::find_if(
+            m_cr->students.constBegin(), m_cr->students.constEnd(),
+            [&name](const StudentRecord &sr) { return sr.name_ch == name; });
+        if (it == m_cr->students.constEnd())
+            return result;
+        for (const RecordInfo &info : it->info) {
             if (info.week >= startWeek && info.week <= endWeek) {
                 result.append(info);
             }
@@ -570,12 +598,16 @@ QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForSummary(int mode, in
     } else { // 小组模式
         QString groupName = ui->quantifyTable->item(row, 0)->text();
         auto git = std::find_if(m_cr->groups.constBegin(), m_cr->groups.constEnd(),
-                                [&groupName](const GroupRecord& gr) { return gr.name_ch == groupName; });
-        if (git == m_cr->groups.constEnd()) return result;
-        for (const QString& member : git->members) {
+                                [&groupName](const GroupRecord &gr) {
+                                    return gr.name_ch == groupName;
+        });
+        if (git == m_cr->groups.constEnd())
+            return result;
+        for (const QString &member : git->members) {
             auto sit = m_cr->students.constFind(member);
-            if (sit == m_cr->students.constEnd()) continue;
-            for (const RecordInfo& info : sit->info) {
+            if (sit == m_cr->students.constEnd())
+                continue;
+            for (const RecordInfo &info : sit->info) {
                 if (info.week >= startWeek && info.week <= endWeek) {
                     RecordInfo copy = info;
                     copy.memberName = sit->name_ch;
@@ -587,11 +619,14 @@ QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForSummary(int mode, in
     return result;
 }
 
-QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForColumn(int mode, int row, int column,
-                                                                   int weekCount, const QVector<QPair<int,int>>& ranges) const {
-    int totalCols = 1 + weekCount + ranges.size() + 1; // 姓名 + 每周 + 汇总 + 总分
-    if (column == 0) return {}; // 姓名列由调用方单独处理
-    if (column == totalCols - 1) {
+QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForColumn(
+    int mode, int row, int column, int weekCount,
+    const QVector<QPair<int, int>> &ranges) const {
+    int totalCols =
+        1 + weekCount + ranges.size() + 1; // 姓名 + 每周 + 汇总 + 总分
+    if (column == 0)
+        return {}; // 姓名列由调用方单独处理
+    if (column == totalCols -1) {
         // 总分列
         return collectRecordsForWeekOrTotal(mode, row, column, weekCount);
     }

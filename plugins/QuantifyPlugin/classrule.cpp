@@ -237,6 +237,14 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
         }
         ++m_cr->weekCount;
     }
+    if(rt==TERMLY){
+        for (auto &stu : m_cr->students) {
+            Record weeklySum{};
+            foreach (const auto &rec, stu.records)
+                weeklySum.s2 += rec.s2;
+            stu.weekly.push_back(weeklySum);
+        }
+    }
 
     // 清除临时记录（由调用方负责）
     clear(rt);
