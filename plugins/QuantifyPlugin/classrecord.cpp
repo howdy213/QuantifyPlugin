@@ -23,9 +23,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include "classrecord.h"
-#include "quantify.h"
 #include "QXlsx.h"
 #include "logger.h"
+#include "quantify.h"
 
 using namespace QXlsx;
 using namespace Quantify;
@@ -175,7 +175,7 @@ Record ClassRecord::getScore(QString name) {
     return it->getScore();
 }
 
-const QVector<QPair<int, int> > &ClassRecord::getSummaryRanges() const {
+const QVector<QPair<int, int>> &ClassRecord::getSummaryRanges() const {
     return m_summaryRanges;
 }
 ///
@@ -199,8 +199,7 @@ void ClassRecord::refresh() {
     readSummaryFile();
 }
 
-void ClassRecord::readSummaryFile()
-{
+void ClassRecord::readSummaryFile() {
     m_summaryRanges.clear();
     QString summaryPath = QDir(folder).filePath(DirRecord + "/summary.txt");
     QFile file(summaryPath);
@@ -209,7 +208,8 @@ void ClassRecord::readSummaryFile()
     QTextStream in(&file);
     while (!in.atEnd()) {
         QString line = in.readLine().trimmed();
-        if (line.isEmpty()) continue;
+        if (line.isEmpty())
+            continue;
         QStringList parts = line.split('-');
         if (parts.size() == 2) {
             bool ok1, ok2;
@@ -316,4 +316,5 @@ void ClassRecord::readRecordFile() {
                                     fileInfo.at(i).fileName().split(".").first());
         }
     }
+    rules.m_cr->weekCount--;
 }

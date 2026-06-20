@@ -137,6 +137,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
     }
 
     RuleBase *currentRule = nullptr;
+    QString reason;
     QString extra;
     int startIdx = 1;
 
@@ -150,7 +151,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
             extra.clear();
             startIdx = i;
             const auto parts = line.split(']'); // ["[reason", "[ extra extra", ""]
-            const QString reason = parts[0].mid(1); // "reason"
+            reason = parts[0].mid(1); // "reason"
             if (parts.size() >= 2)
                 extra = parts[1].mid(1); // " extra extra"
 
@@ -180,7 +181,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
                 bool ok = false;
                 double delta = numPart.toDouble(&ok);
                 if (!ok) {
-                    Logger::instance().warn(date + " 无效的custom分数" + "(" + line +
+                    Logger::instance().warn(date + " 无效的custom分数" + "(line:" + line +
                                             ")");
                     continue;
                 }
@@ -197,6 +198,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
                 auto stuIt = m_cr->students.find(target);
                 if (stuIt != m_cr->students.end())
                     changeRecord(tokens, date, currentRule, rt, stuIt, "", customScore);
+                else  Logger::instance().warn(date + " 未找到成员" + "(line:" + line + ")"+target);
                 continue;
             }
 
@@ -206,7 +208,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
             // 排除指定的成员
             foreach (const QString &ex, targetInfo.exclude) {
                 if (!members.removeAll(ex))
-                    Logger::instance().warn(date + " 成员排除无效" + "(" + line + ")" +
+                    Logger::instance().warn(date + " 成员排除无效" + "(line:" + line + ")" +
                                             targetInfo.groupName + "-" + ex);
             }
 
@@ -217,18 +219,18 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
                     changeRecord(tokens, date, currentRule, rt, stuIt,
                                  '(' + groupDisplayName + ')', customScore);
                 } else {
-                    Logger::instance().warn(date + " 未找到成员" + "(" + line + ")" +
+                    Logger::instance().warn(date + " 未找到成员" + "(line:" + line + ")" +
                                             member);
                 }
             }
         } else {
-            Logger::instance().error(date + " 未定义的规则" + "(" + line + ")" +
-                                     line);
+            Logger::instance().error(date + " 未定义的规则" + "(line:" + line + "):" +
+                                     reason);
         }
     }
 
     // 每周处理：累计周记录
-    if (rt == WEEKLY) {
+    if (rt == WEEKLY||rt == TERMLY) {
         for (auto &stu : m_cr->students) {
             Record weeklySum{};
             foreach (const auto &rec, stu.records)
@@ -236,15 +238,7 @@ bool ClassRule::analyzeRecordFile(const QString &file, const QString &date) {
             stu.weekly.push_back(weeklySum);
         }
         ++m_cr->weekCount;
-    }
-    if(rt==TERMLY){
-        for (auto &stu : m_cr->students) {
-            Record weeklySum{};
-            foreach (const auto &rec, stu.records)
-                weeklySum.s2 += rec.s2;
-            stu.weekly.push_back(weeklySum);
-        }
-    }
+    }//TERMLY单独算作一周，最后一次自加会被减去
 
     // 清除临时记录（由调用方负责）
     clear(rt);
