@@ -97,7 +97,8 @@ void QuantifyEditWindow::initialize(
     }
 
     if (this->ui->textEdit->toPlainText().isEmpty()) {
-        QString defaultPath = Quantify::resolvePathWithKey(doc, DirTemplate) + "/default.txt";
+        QString defaultPath =
+            Quantify::resolvePathWithKey(doc, DirTemplate) + "/default.txt";
         QFile file(defaultPath);
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream stream(&file);
@@ -108,6 +109,7 @@ void QuantifyEditWindow::initialize(
             file.close();
         }
     }
+    navigateToLatestRecord();
 }
 
 void QuantifyEditWindow::setClassRecord(ClassRecord *cr) {
@@ -634,7 +636,18 @@ void QuantifyEditWindow::on_tabWidget_currentChanged(int index) {
         loadNamelistButtons();
     }
 }
-
+///
+/// \brief QuantifyEditWindow::navigateToLatestRecord
+///
+void QuantifyEditWindow::navigateToLatestRecord() {
+    if (!doc)
+        return;
+    QMap<QDate, int> counts = countRecordFiles();
+    if (counts.isEmpty())
+        return;
+    QDate latest = counts.lastKey(); // QMap 按日期升序，lastKey 即最大日期
+    ui->calendarWidget->setSelectedDate(latest);
+}
 ///
 /// \brief 替换 textEdit 全部内容，并保留撤销/重做历史
 /// \param text 要设置的新文本
@@ -672,12 +685,13 @@ void QuantifyEditWindow::loadRecordFileByIndex(int index) {
     QString filePath = QDir(recordDir).filePath(fileName);
 
     if (!QFile::exists(filePath)) {
-        QMessageBox::information(this, "提示",
-                                 QString("文件不存在：%1").arg(fileName));
+        ui->labelCheck->setText("读取文件失败");
+        ui->nameEdit->setText(fileName.left(fileName.lastIndexOf('.')));
+        // QMessageBox::information(this, "提示",
+        //                          QString("文件不存在：%1").arg(fileName));
         return;
     }
 
-    // 复用已有的解密读取函数（第二个参数 true 表示是记录文件）
     QString content = readFileWithDecryption(filePath, true);
     if (content.isNull())
         return; // readFileWithDecryption 已弹出错误提示
@@ -685,6 +699,7 @@ void QuantifyEditWindow::loadRecordFileByIndex(int index) {
     replaceTextEditContent(content);
     ui->nameEdit->setText(
         fileName.left(fileName.lastIndexOf('.'))); // 去掉 .record 后缀
+    ui->labelCheck->setText("读取文件成功");
 }
 
 void QuantifyEditWindow::on_btnFile1_clicked() { loadRecordFileByIndex(1); }

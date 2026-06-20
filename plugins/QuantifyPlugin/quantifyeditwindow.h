@@ -24,32 +24,31 @@
  */
 #ifndef QUANTIFYEDITWINDOW_H
 #define QUANTIFYEDITWINDOW_H
-#include <QWidget>
-#include <QFileDialog>
 #include <QDesktopServices>
+#include <QFileDialog>
 #include <QStandardPaths>
+#include <QWidget>
 
 #include "WECore/metadata/WMetaDocument.h"
 #include "classrecord.h"
 #include "qcalendarwidget.h"
 #include "quantify.h"
 
-enum InputType {TYPE_RULE,TYPE_RECORD};
+enum InputType { TYPE_RULE, TYPE_RECORD };
 namespace Ui {
 class QuantifyEditWindow;
 }
 
 class QuantifyDisplayWindow;
-class QuantifyEditWindow : public QWidget
-{
+class QuantifyEditWindow : public QWidget {
     Q_OBJECT
 
 public:
     explicit QuantifyEditWindow(QWidget *parent = nullptr);
     ~QuantifyEditWindow();
-    void initialize(const Quantify::QuantifyComponents& components,
-                    const Quantify::QuantifyUI& ui);
-    void setClassRecord(ClassRecord* cr);
+    void initialize(const Quantify::QuantifyComponents &components,
+                    const Quantify::QuantifyUI &ui);
+    void setClassRecord(ClassRecord *cr);
 private slots:
     void on_comboBox_editTextChanged(const QString &arg1);
     void on_btnTemplate_clicked();
@@ -63,35 +62,34 @@ private slots:
     void on_calendarWidget_clicked(const QDate &date);
     void on_tabWidget_currentChanged(int index);
     void onNamelistButtonClicked();
-    void on_calendarWidget_activated(const QDate &date);   // 双击/回车触发
-
+    void on_calendarWidget_activated(const QDate &date); // 双击/回车触发
     void on_btnFile1_clicked();
-
     void on_btnFile2_clicked();
-
     void on_btnFile3_clicked();
 
 public slots:
     void onUpdateSecurityInfo();
 
 private:
+    void navigateToLatestRecord();
     void replaceTextEditContent(const QString &text);
     QString getCurrentFileExtension() const;
     QString getCurrentFileFilter() const;
     QString getCurrentDirectoryPath() const;
     QString readFileWithDecryption(const QString &filePath, bool isRecord) const;
-    bool writeFileWithEncryption(const QString &filePath, const QString &content, bool isRecord) const;
+    bool writeFileWithEncryption(const QString &filePath, const QString &content,
+                                 bool isRecord) const;
     void loadRecordFileByIndex(int index);
     void loadNamelistButtons();          // 从 cr 加载姓名按钮
     void updateCalendarColors();         // 更新日历颜色
-    QMap<QDate, int> countRecordFiles();   // 统计规则文件数量
+    QMap<QDate, int> countRecordFiles(); // 统计规则文件数量
     void updateSecurityInfo();
     InputType inType = TYPE_RULE;
     bool isChecked = false;
 
-    ClassRecord* cr = nullptr;
-    we::WMetaDocument* doc = nullptr;
-    QuantifyDisplayWindow* displayWnd=nullptr;
+    ClassRecord *cr = nullptr;
+    we::WMetaDocument *doc = nullptr;
+    QuantifyDisplayWindow *displayWnd = nullptr;
     Ui::QuantifyEditWindow *ui;
 };
 
