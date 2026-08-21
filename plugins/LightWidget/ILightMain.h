@@ -32,7 +32,10 @@ constexpr auto Tab = "Tab";
 } // namespace Event
 
 namespace Key {
+constexpr auto MenuOpType = "menuOpType";
 constexpr auto MenuPath = "menuPath";
+constexpr auto MenuOpCreate = "create";
+constexpr auto MenuOpDelete = "delete";
 constexpr auto TabTitle = "title";
 } // namespace Key
 } // namespace Consts

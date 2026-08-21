@@ -2,7 +2,7 @@
  * @file lightsystem.cpp
  * @brief Implementation file for the lightweight plugin loading system.
  * @author howdy213
- * @date 2026-05-04
+ * @date 2026-08-20
  * @version 2.0.0
  *
  * @copyright Copyright 2025-2026 howdy213
@@ -20,53 +20,95 @@
  * limitations under the License.
  */
 #include "lightsystem.h"
-#include "WECore/metadata/WMetaDocument.h"
-#include "WECore/we/we.h"
-#include "WECore/we/webase.h"
 #include "WECore/file/wpath.h"
 #include "WECore/plugin/wplugin.h"
 #include "WECore/plugin/wpluginmanager.h"
+#include "WECore/we/we.h"
+#include "WECore/we/webase.h"
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFileInfo>
 
 using namespace we::Consts;
 using namespace we;
 
-/**
- * @class LightSystemPrivate
- * @brief Private implementation class for LightSystem.
- */
 class LightSystemPrivate {
 public:
-    // Currently empty, reserved for future extensions
+    // 保留
 };
 
-/**
- * @brief Constructs a LightSystem object.
- */
 LightSystem::LightSystem() {
     d = new LightSystemPrivate;
+    m_configManager = new PluginConfigManager();
 }
 
-/**
- * @brief Destroys the LightSystem object.
- */
 LightSystem::~LightSystem() {
+    delete m_configManager;
     delete d;
 }
 
+QJsonObject LightSystem::readJsonFile(QString filePath) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        return QJsonObject();
+    }
+    QString content = file.readAll();
+    file.close();
+    return QJsonDocument::fromJson(content.toUtf8()).object();
+}
+
+void LightSystem::findAllPlugin() {
+    QString pluginsPath = WPath().getModuleFolder() + Plugins::ConfigPath;
+    if (!m_configManager->loadFromFile(pluginsPath)) {
+        return; // 加载失败
+    }
+
+    PluginTreeNode* root = m_configManager->rootNode();
+    std::function<void(PluginTreeNode*)> loadNode = [&](PluginTreeNode* node) {
+        if (!node->isContainer) {
+            QFileInfo fileInfo(node->absolutePath);
+            QDir curPath = fileInfo.filePath();
+            QJsonObject pluginObj = readJsonFile(node->absolutePath);
+            if (!pluginObj.isEmpty()) {
+                findSinglePlugin(curPath, pluginObj);
+            }
+        }
+        // 递归子节点
+        for (PluginTreeNode* child : std::as_const(node->children)) {
+            loadNode(child);
+        }
+    };
+
+    for (PluginTreeNode* child : std::as_const(root->children)) {
+        loadNode(child);
+    }
+}
+
 /**
- * @brief Loads all plugins defined in the configuration file.
+ * @brief Recursively loads plugins from configuration.
+ * @param curPath Path to the directory containing the configuration.
+ * @param config JSON object containing the configuration.
  */
-void LightSystem::loadAllPlugin() {
-    QString plugins = WPath().getModuleFolder() + Plugins::ConfigPath;
-    WMetaDocument doc;
-    doc.load(plugins, true);
-    auto map = doc.toMap();
-    for (auto it = map.begin(); it != map.end(); ++it) {
-        QJsonDocument doc2(it.value().toJsonObject());
-        loadPlugin(plugins, doc2.toJson());
+void LightSystem::findPluginRecursive(QDir curPath, QJsonObject object) {
+    QDir rootPath = curPath;
+    QDir filePath = WPath().resolvePath(
+        rootPath.path(), object[Plugins::PluginConfigPath].toString());
+
+    QJsonObject jsonObj = readJsonFile(filePath.path());
+    if (jsonObj.isEmpty())
+        return;
+
+    if (jsonObj.contains(Plugins::Plugins)) {
+        QJsonObject pluginsObj = jsonObj[Plugins::Plugins].toObject();
+        for (auto it = pluginsObj.begin(); it != pluginsObj.end(); ++it) {
+            findPluginRecursive(filePath, it.value().toObject());
+        }
+    } else {
+        QDir rootPath = filePath;
+        findSinglePlugin(rootPath, jsonObj);
     }
 }
 
@@ -75,38 +117,30 @@ void LightSystem::loadAllPlugin() {
  * @param curPath Path to the directory containing the configuration.
  * @param config JSON configuration string.
  */
-void LightSystem::loadPlugin(QString curPath, QString config) {
-    WMetaDocument doc;
-    doc.load(config, false);
-    QString jsonPath = WPath().resolvePath(
-        curPath, qvariant_cast<QString>(doc.get(Plugins::PluginConfigPath)));
+void LightSystem::findPlugin(QDir curPath, QJsonObject object) {
+    QDir pluginPath = WPath().resolvePath(
+        curPath.path(), object[Plugins::PluginConfigPath].toString());
+    QJsonObject pluginObj = readJsonFile(pluginPath.path());
+    if (pluginObj.isEmpty())
+        return;
+    findSinglePlugin(curPath, pluginObj);
+}
 
-    WMetaDocument objectDoc;
-    objectDoc.load(jsonPath, true);
-
-    for (int i = 1;; ++i) {
-        QString num = QString::number(i);
-
-        auto obj = objectDoc.get(num).toJsonObject();
-        if (obj.isEmpty())
-            break;
-        QJsonDocument doc2(obj);
-        WMetaDocument doc3;
-        doc3.load(doc2.toJson(), false);
-
-        loadSinglePlugin(jsonPath, &doc3);
-    }
+PluginConfigManager *LightSystem::pluginConfigManager()
+{
+    return m_configManager;
 }
 
 /**
  * @brief Loads a single plugin instance.
- * @param jsonPath Path to the plugin's JSON file.
- * @param doc Metadata document containing the plugin configuration.
+ * @param curPath Path to the directory containing the plugin configuration.
+ * @param pluginObj JSON object containing the plugin configuration.
  */
-void LightSystem::loadSinglePlugin(QString jsonPath, WMetaDocument *doc) {
-    if (!doc->hasArg(Plugin::Path))
+void LightSystem::findSinglePlugin(QDir curPath, QJsonObject pluginObj) {
+    if (!pluginObj.contains(Plugin::RelativePath))
         return;
+
     WPlugin *plugin = new WPlugin(WE::inst()->getWEClass()->pluginManager());
-    plugin->readConfig(jsonPath, doc->toJsonString());
+    plugin->readConfig(curPath.path(),pluginObj);
     WE::inst()->getWEClass()->pluginManager()->addPlugin(plugin);
 }

@@ -98,7 +98,7 @@ void QuantifyEditWindow::initialize(
 
     if (this->ui->textEdit->toPlainText().isEmpty()) {
         QString defaultPath =
-            Quantify::resolvePathWithKey(doc, DirTemplate) + "/default.txt";
+            Quantify::resolvePathWithKey(doc, DirTemplate).filePath("default.txt");
         QFile file(defaultPath);
         if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
             QTextStream stream(&file);
@@ -130,7 +130,7 @@ void QuantifyEditWindow::on_comboBox_editTextChanged(const QString &arg1) {
 /// \brief 模板按钮点击槽：根据当前类型和引擎加载对应模板文件
 ///
 void QuantifyEditWindow::on_btnTemplate_clicked() {
-    QString tempPath = Quantify::resolvePathWithKey(doc, DirTemplate);
+    QDir tempPath = Quantify::resolvePathWithKey(doc, DirTemplate);
     QString engine = doc->get(VarEngine).toString();
     QString fileName;
     QString currentType = ui->comboBox->currentText();
@@ -149,7 +149,7 @@ void QuantifyEditWindow::on_btnTemplate_clicked() {
     else
         return;
 
-    QString fullPath = tempPath + '/' + fileName;
+    QString fullPath = tempPath.absoluteFilePath(fileName);
     QFile file(fullPath);
     QString content;
     if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
@@ -216,10 +216,10 @@ void QuantifyEditWindow::on_btnSave_clicked() {
     if (ext.isEmpty())
         return;
 
-    QString dirPath = getCurrentDirectoryPath();
+    QDir dirPath = getCurrentDirectoryPath();
     QString defaultName =
         ui->nameEdit->text().isEmpty() ? "file" : ui->nameEdit->text();
-    QString defaultPath = dirPath + defaultName + ext;
+    QString defaultPath = dirPath.absoluteFilePath(defaultName + ext);
 
     QString savePath = QFileDialog::getSaveFileName(
         nullptr, "保存文件", defaultPath, getCurrentFileFilter());
@@ -237,13 +237,13 @@ void QuantifyEditWindow::on_btnSave_clicked() {
 /// \brief 打开按钮槽：弹出打开对话框，读取并解密文件
 ///
 void QuantifyEditWindow::on_btnOpen_clicked() {
-    QString path = getCurrentDirectoryPath();
+    QDir path = getCurrentDirectoryPath();
     QString filter = getCurrentFileFilter();
     if (filter.isEmpty())
         return;
 
-    QString savePath =
-        QFileDialog::getOpenFileName(nullptr, "打开文件", path, filter);
+    QString savePath = QFileDialog::getOpenFileName(nullptr, "打开文件",
+                                                    path.absolutePath(), filter);
     if (savePath.isEmpty())
         return;
 
@@ -274,8 +274,8 @@ void QuantifyEditWindow::on_btnClear_clicked() {
 ///
 void QuantifyEditWindow::on_addonButton_clicked() {
     if (doc) {
-        QString addonPath = Quantify::resolvePathWithKey(doc, DirAddon);
-        WShellExecute::syncExecute(addonPath);
+        QDir addonPath = resolvePathWithKey(doc, DirAddon);
+        WShellExecute::syncExecute(addonPath.absolutePath());
     }
 }
 
@@ -320,16 +320,17 @@ QString QuantifyEditWindow::getCurrentFileFilter() const {
 /// \brief 获取当前类型的默认目录路径
 /// \return 例如 "basepath/record/"
 ///
-QString QuantifyEditWindow::getCurrentDirectoryPath() const {
+QDir QuantifyEditWindow::getCurrentDirectoryPath() const {
     if (!doc)
-        return "";
-    QString base = Quantify::resolvePathWithKey(doc, DirPath);
+        return QDir();
+    QDir base = Quantify::getTermDir(doc);
     QString ext = getCurrentFileExtension();
     if (ext.isEmpty())
         return base;
     // 去掉开头的点号作为子目录名
     QString subDir = ext.mid(1);
-    return base + "/" + subDir + "/";
+    base.cd(subDir);
+    return base;
 }
 
 ///
@@ -387,7 +388,7 @@ bool QuantifyEditWindow::writeFileWithEncryption(const QString &filePath,
     bool encryptEnabled = false;
     if (isRecord && doc) {
         encryptEnabled = Encryptor::hasEncryptedRecords(
-            Quantify::resolvePathWithKey(doc, DirPath));
+            Quantify::getTermDir(doc).absolutePath());
     }
 
     if (isRecord && encryptEnabled) {
@@ -496,7 +497,7 @@ QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
     QMap<QDate, int> countMap;
     if (!doc)
         return countMap;
-    QDir recordDir(Quantify::resolvePathWithKey(doc, DirPath) + "/record");
+    QDir recordDir = Quantify::getTermDir(doc).filePath("record");
     if (!recordDir.exists())
         return countMap;
 
@@ -505,7 +506,7 @@ QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
     recordDir.setNameFilters(filters);
     QFileInfoList files = recordDir.entryInfoList();
 
-    for (const QFileInfo &fi : files) {
+    for (const QFileInfo &fi : std::as_const(files)) {
         QString baseName = fi.baseName(); // 例如 "20260314-1"
         if (baseName.length() < 8)
             continue;
@@ -522,8 +523,7 @@ QMap<QDate, int> QuantifyEditWindow::countRecordFiles() {
 /// \brief 更新安全信息标签：显示文件哈希、最后修改时间、加密比例
 ///
 void QuantifyEditWindow::updateSecurityInfo() {
-    QString recordDir = Quantify::resolvePathWithKey(doc, DirPath) + "/record";
-    QDir dir(recordDir);
+    QDir dir = Quantify::getTermDir(doc).filePath("record");
     QStringList recordFiles =
         dir.entryList(QStringList() << "*.record", QDir::Files);
 
@@ -594,8 +594,7 @@ void QuantifyEditWindow::updateCalendarColors() {
 void QuantifyEditWindow::on_calendarWidget_activated(const QDate &date) {
     if (!doc)
         return;
-    QString recordDir = Quantify::resolvePathWithKey(doc, "path") + "/record";
-    QDir dir(recordDir);
+    QDir dir = getTermDir(doc).filePath("record");
     if (!dir.exists())
         return;
 
@@ -681,7 +680,7 @@ void QuantifyEditWindow::loadRecordFileByIndex(int index) {
     }
 
     QString fileName = prefix + QString::number(index) + ".record";
-    QString recordDir = Quantify::resolvePathWithKey(doc, DirPath) + "/record";
+    QString recordDir = getTermDir(doc).filePath(DirRecord);
     QString filePath = QDir(recordDir).filePath(fileName);
 
     if (!QFile::exists(filePath)) {

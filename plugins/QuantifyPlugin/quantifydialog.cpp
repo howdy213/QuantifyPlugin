@@ -30,9 +30,9 @@
 #include <QMessageBox>
 #include <mutex>
 
-#include "WECore/metadata/WMetaDocument.h"
 #include "WECore/def/wedef.h"
 #include "WECore/file/wpath.h"
+#include "WECore/metadata/WMetaDocument.h"
 #include "WECore/plugin/wplugin.h"
 #include "WECore/plugin/wplugindata.h"
 
@@ -69,17 +69,17 @@ QuantifyDialog::QuantifyDialog(QWidget *parent)
     d->ui = new Ui::QuantifyDialog;
     d->ui->setupUi(this);
 
-    Logger::instance().setLogPath(
-        QDir(PPlugin->getMetaData(Plugin::Path).toString())
-            .filePath("../Quantify/logs"));
+    QDir pluginDir = PPlugin->path();
+    pluginDir.cdUp();
+    Logger::instance().setLogPath(pluginDir.filePath("Quantify/logs"));
     Logger::instance().clear();
-    d->m_components = new Quantify::QuantifyComponents;
-    d->m_ui = new Quantify::QuantifyUI;
+    d->m_components = new QuantifyComponents;
+    d->m_ui = new QuantifyUI;
     d->m_components->config = new WMetaDocument;
     readConfig();
     auto &config = d->m_components->config;
     d->m_components->classRecord = new ClassRecord(
-        resolvePathWithKey(config, DirPath),
+        getTermDir(config).absolutePath(),
         config->get(VarEngine).toString() == EngineJS ? RuleEngine::JS
                                                       : RuleEngine::Native);
 
@@ -111,8 +111,8 @@ QuantifyDialog::QuantifyDialog(QWidget *parent)
 
     connect(d->m_ui->settingWindow, &QuantifySettingWindow::requestDialogRestart,
             this, &QuantifyDialog::onRequestDialogRestart);
-    connect(d->m_ui->settingWindow, &QuantifySettingWindow::settingsChanged,
-            this, &QuantifyDialog::onSettingsChanged);
+    connect(d->m_ui->settingWindow, &QuantifySettingWindow::settingsChanged, this,
+            &QuantifyDialog::onSettingsChanged);
     connect(d->m_ui->settingWindow, &QuantifySettingWindow::unsavedChangesChanged,
             this, &QuantifyDialog::onSettingUnsavedChanged);
     d->ui->sideBar->setEnabled(true);
@@ -129,22 +129,22 @@ bool QuantifyDialog::readConfig() {
     if (!d->m_components->config)
         d->m_components->config = new WMetaDocument;
 
-    QString configPath =
-        WPath(PData).getModuleFolder(PPlugin->getId()) + "Quantify/config.json";
-    if (!d->m_components->config->load(configPath, true)) {
+    QDir pluginDir = PPlugin->path();
+    pluginDir.cdUp();
+    QDir configPath = pluginDir.filePath("Quantify/config.json");
+    if (!d->m_components->config->load(configPath.absolutePath(), true)) {
         QMessageBox::information(this, "首次使用",
                                  "前往 设置>新建配置-新建 创建初始数据后开始使用");
-        return false;
     };
 
-    QFileInfo configFileInfo(configPath);
-    QString configDir = configFileInfo.absolutePath();
+    QFileInfo configFileInfo(configPath.absolutePath());
+    QDir configDir = configFileInfo.dir();
 
-    d->m_components->config->set(DirRoot, configDir);
+    setConfigDir(d->m_components->config, configDir.absolutePath());
 
-    QString path = d->m_components->config->get(DirPath).toString();
-    QString addon = d->m_components->config->get(DirAddon).toString();
-    QString temp = d->m_components->config->get(DirTemplate).toString();
+    QString path = getTermDir(d->m_components->config).path();
+    QString addon = resolvePathWithKey(d->m_components->config, DirAddon).path();
+    QString temp = resolvePathWithKey(d->m_components->config, DirTemplate).path();
 
     auto findPrivateKey = []() -> QString {
         QFileInfoList drives = QDir::drives();
@@ -159,7 +159,7 @@ bool QuantifyDialog::readConfig() {
     std::call_once(opensslInitFlag, []() { Encryptor::init(); });
 
     // 加载公钥（优先配置目录，否则内置）
-    if (!Encryptor::loadPublicKeyWithFallback(configDir)) {
+    if (!Encryptor::loadPublicKeyWithFallback(configDir.absolutePath())) {
         Logger::instance().warn("公钥加载失败，解密功能将不可用");
     }
 
@@ -169,10 +169,9 @@ bool QuantifyDialog::readConfig() {
         if (!Encryptor::loadPrivateKey(privateKeyPath)) {
             Logger::instance().error("私钥加载失败: " + privateKeyPath);
         } else if (!Encryptor::keysMatch()) {
-            Encryptor::clearPrivateKey();  // 清除不匹配的密钥
+            Encryptor::clearPrivateKey(); // 清除不匹配的密钥
             m_keyMismatchError = "公私钥不匹配：" + privateKeyPath;
             Logger::instance().error(m_keyMismatchError);
-            // 延迟到 showEvent 显示，避免构造函数中弹窗导致崩溃
         }
     }
 
@@ -200,10 +199,7 @@ void QuantifyDialog::setPlugin(QuantifyPlugin *plugin) {
     d->plugin = plugin;
 }
 
-void QuantifyDialog::onSettingsChanged()
-{
-    rebuildClassRecord();
-}
+void QuantifyDialog::onSettingsChanged() { rebuildClassRecord(); }
 
 void QuantifyDialog::onSettingUnsavedChanged(bool hasUnsaved) {
     Q_D(QuantifyDialog);
@@ -216,9 +212,11 @@ void QuantifyDialog::rebuildClassRecord() {
     Q_D(QuantifyDialog);
     // 1. 删除旧的 ClassRecord
     delete d->m_components->classRecord;
-    QString dataPath = resolvePathWithKey(d->m_components->config, DirPath);
-    RuleEngine engine = (d->m_components->config->get(VarEngine).toString() == EngineJS)
-                            ? RuleEngine::JS : RuleEngine::Native;
+    QString dataPath = getTermDir(d->m_components->config).absolutePath();
+    RuleEngine engine =
+        (d->m_components->config->get(VarEngine).toString() == EngineJS)
+                            ? RuleEngine::JS
+                            : RuleEngine::Native;
     // 3. 创建新的 ClassRecord
     d->m_components->classRecord = new ClassRecord(dataPath, engine);
     // 4. 通知所有依赖的子窗口更新指针
@@ -228,8 +226,7 @@ void QuantifyDialog::rebuildClassRecord() {
     d->m_ui->displayWindow->refresh();
 }
 
-void QuantifyDialog::onRequestDialogRestart()
-{
+void QuantifyDialog::onRequestDialogRestart() {
     // 获取插件指针
     Q_D(QuantifyDialog);
     if (d->plugin) {
@@ -258,6 +255,6 @@ void QuantifyDialog::showEvent(QShowEvent *event) {
     // 延迟显示密钥不匹配错误（确保窗口已经完全显示，避免构造时弹窗崩溃）
     if (!m_keyMismatchError.isEmpty()) {
         QMessageBox::critical(this, "错误", m_keyMismatchError);
-        m_keyMismatchError.clear();   // 只显示一次
+        m_keyMismatchError.clear(); // 只显示一次
     }
 }

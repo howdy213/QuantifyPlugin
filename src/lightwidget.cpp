@@ -2,7 +2,7 @@
  * @file lightwidget.cpp
  * @brief Implementation file for the LightWidget class.
  * @author howdy213
- * @date 2026-05-04
+ * @date 2026-08-20
  * @version 2.0.0
  *
  * @copyright Copyright 2025-2026 howdy213
@@ -24,10 +24,10 @@
 #include "lightsystem.h"
 #include "querymaindialog.h"
 
-#include "WECore/metadata/WMetaDocument.h"
-#include "WECore/we/we.h"
 #include "WECore/file/wpath.h"
+#include "WECore/metadata/WMetaDocument.h"
 #include "WECore/plugin/wplugin.h"
+#include "WECore/we/we.h"
 #include "WECore/widget/wwidgetmanager.h"
 
 #include <QMessageBox>
@@ -51,6 +51,8 @@ void LightWidget::initAllPlugin() {
     auto manager = WE::inst()->getWEClass()->pluginManager();
     auto plugins = manager->allPluginsInst();
     foreach (auto plugin, plugins) {
+        // First load the plugin, then initialize it
+        manager->loadPlugin(plugin);
         manager->initPlugin(plugin);
     }
 }
@@ -96,8 +98,12 @@ LightWidget::LightWidget() : WEBase() {
 bool LightWidget::init() {
     auto data = WEBase::getWEBaseData();
     initData(data);
-    d->sys->loadAllPlugin();
+    d->sys->findAllPlugin();
     return true;
+}
+
+PluginConfigManager *LightWidget::pluginConfigManager() {
+    return d->sys ? d->sys->pluginConfigManager() : nullptr;
 }
 
 /**
@@ -106,26 +112,25 @@ bool LightWidget::init() {
  * @param defualtWidget Path to the default widget plugin.
  * @return True if the main plugin was successfully initialized.
  */
-bool LightWidget::initMainPlugin(QStringList params, QString defualtWidget) {
+bool LightWidget::initMainPlugin(QStringList params, QUuid defualtWidget) {
     auto data = WEBase::getWEBaseData();
     auto manager = data->getData<WPluginManager *>(Public::PManager);
     auto ret = manager->getPluginByAttr(Plugin::MainWidget, true);
     QUuid id;
     if (ret.length() >= 2) {
-        auto widget = manager->getPluginByAttr(Plugin::Path, defualtWidget);
+        auto widget = manager->getPluginByAttr(Plugin::LocalUuid, defualtWidget);
         if (!widget.empty()) {
             id = widget[0];
         } else {
             QueryMainDialog dlg;
             foreach (id, ret) {
                 auto plugin = manager->getPluginById(id);
-                dlg.addMainWidget(plugin->getMetaData(Plugin::Path).toString());
+                dlg.addMainWidget(plugin);
             }
             if (dlg.exec() != QDialog::Accepted)
                 return false;
-            auto plugin =
-                manager->getPluginByAttr(Plugin::Path, dlg.selectedWidgetName());
-            id = plugin[0];
+            auto plugin = dlg.selectedPlugin();
+            id = plugin->localUuid();
         }
     }
     if (ret.length() == 1)

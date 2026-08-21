@@ -36,6 +36,7 @@
 #include "quantifydisplaywindow.h"
 #include "quantifyeditwindow.h"
 #include "ui_quantifydisplaywindow.h"
+using namespace Quantify;
 
 const double SCORE_SCALE = 10000.0;
 ///
@@ -285,7 +286,7 @@ QVector<double> QuantifyDisplayWindow::computeSummaryValues(
         double sum = 0.0;
         int start = range.first; // 1基索引
         int end = range.second;
-        for (int w = start-1; w <= end-1 && w < weekly.size(); ++w) {
+        for (int w = start - 1; w <= end - 1 && w < weekly.size(); ++w) {
             sum += weekly[w].s2;
         }
         values.append(sum);
@@ -461,9 +462,7 @@ void QuantifyDisplayWindow::on_btnModifySummaryFile_clicked() {
         return;
     }
 
-    QString recordDir =
-        Quantify::resolvePathWithKey(m_doc, Quantify::Consts::DirPath) + "/" +
-                        Quantify::Consts::DirRecord;
+    QString recordDir = getTermDir(m_doc).filePath(Consts::DirRecord);
     QString summaryPath = QDir(recordDir).filePath("summary.txt");
 
     // 读取现有内容
@@ -531,7 +530,7 @@ QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForWeekOrTotal(
     int mode, int row, int column, int weekCount) const {
     QVector<RecordInfo> result;
     bool isTotalColumn =
-        (column == 1+ weekCount + m_cr->getSummaryRanges().size()); // 总分列索引
+        (column == 1 + weekCount + m_cr->getSummaryRanges().size()); // 总分列索引
 
     if (mode == 0) { // 个人模式
         QString name = ui->quantifyTable->item(row, 0)->text();
@@ -626,7 +625,7 @@ QVector<RecordInfo> QuantifyDisplayWindow::collectRecordsForColumn(
         1 + weekCount + ranges.size() + 1; // 姓名 + 每周 + 汇总 + 总分
     if (column == 0)
         return {}; // 姓名列由调用方单独处理
-    if (column == totalCols -1) {
+    if (column == totalCols - 1) {
         // 总分列
         return collectRecordsForWeekOrTotal(mode, row, column, weekCount);
     }

@@ -92,7 +92,7 @@ bool Encryptor::loadPublicKeyFromFile(const QString &filePath) {
     QString path2;
     path2 = QDir::cleanPath(filePath);
     // 若新公钥与当前私钥（如果存在）不匹配，但存在加密记录，则禁止替换
-    if (m_privateKey && hasEncryptedRecords(QFileInfo(path2).dir().path())) {
+    if (m_privateKey && hasEncryptedRecords(QFileInfo(path2).dir().absolutePath())) {
         Logger::instance().error("尝试替换公钥，但存在加密记录文件，操作被拒绝");
         return false;
     }

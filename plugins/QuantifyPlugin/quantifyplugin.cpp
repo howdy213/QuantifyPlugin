@@ -53,9 +53,7 @@ bool QuantifyPlugin::init(WMessage &msg) {
     PluginData::setWidget(msg.object);
 
     if (auto plugin = PPlugin) {
-        plugin->setMetaData(Plugin::Name, "Quantify");
-        plugin->setMetaData(Plugin::Author, "howdy213");
-        if (plugin->getMetaData(Plugin::Init) == "start") {
+        if (plugin->initArg() == "start") {
             showDialog();
         }
     }
@@ -71,7 +69,7 @@ bool QuantifyPlugin::init(WMessage &msg) {
     // There may be changes in the future.
     widgetManager->subscribe(
         "Quantify.start", msg.object,
-        (SubscribeFunc)[this](const WEvent &event) { showDialog(); });
+        (SubscribeFunc)[this](const WEvent &) { showDialog(); });
 
     WMessage msg2;
     msg2.map[Key::MenuPath] = QVariant::fromValue(QString("Quantify"));
@@ -104,8 +102,7 @@ void QuantifyPlugin::showDialog() {
         widget->activateWindow();
 }
 
-void QuantifyPlugin::restartDialog()
-{
+void QuantifyPlugin::restartDialog() {
     if (widget) {
         widget->close();
         widget = nullptr;

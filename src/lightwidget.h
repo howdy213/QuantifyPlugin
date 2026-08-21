@@ -2,7 +2,7 @@
  * @file lightwidget.h
  * @brief Header file for the LightWidget class.
  * @author howdy213
- * @date 2026-05-04
+ * @date 2026-08-20
  * @version 2.0.0
  *
  * @copyright Copyright 2025-2026 howdy213
@@ -29,6 +29,7 @@
 #include <QString>
 
 class LightWidgetPrivate;
+class PluginConfigManager;
 namespace we {
 /**
  * @class LightWidget
@@ -38,7 +39,8 @@ class LightWidget : public WEBase {
 public:
     LightWidget();
     bool init();
-    bool initMainPlugin(QStringList params, QString defualtWidget);
+    PluginConfigManager* pluginConfigManager();
+    bool initMainPlugin(QStringList params, QUuid defualtWidget);
     void initAllPlugin();
     bool initPlugin(
         WPlugin *plugin, InitDataProc proc = [](WMessage &) {});

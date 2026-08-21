@@ -69,7 +69,7 @@ HEADERS += \
     studentrecordviewer.h \
     virtualkeyboard.h
 
-DISTFILES += QuantifyPlugin.json
+DISTFILES += metadata.json
 
 # Default rules for deployment.
 unix {

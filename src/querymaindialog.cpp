@@ -2,7 +2,7 @@
  * @file querymaindialog.cpp
  * @brief Implementation file for the main widget selection dialog.
  * @author howdy213
- * @date 2026-05-04
+ * @date 2026-08-20
  * @version 2.0.0
  *
  * @copyright Copyright 2025-2026 howdy213
@@ -20,15 +20,19 @@
  * limitations under the License.
  */
 #include "querymaindialog.h"
+#include "WECore/plugin/wplugin.h"
+#include "WECore/we/we.h"
+#include "WECore/file/wpath.h"
+#include <WECore/metadata/WMetaDocument.h>
+#include <WECore/we/webase.h>
 
-/**
- * @brief Constructs the selection dialog.
- * @param parent The parent widget.
- */
+using namespace we;
+using namespace we::Consts;
+
 QueryMainDialog::QueryMainDialog(QWidget *parent)
     : QDialog(parent), m_btnGroup(new QButtonGroup(this)), m_btnId(0) {
     setWindowTitle("选择MainWidget");
-    setMinimumSize(300, 200);
+    setMinimumSize(300, 220);
     setModal(true);
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
@@ -41,6 +45,10 @@ QueryMainDialog::QueryMainDialog(QWidget *parent)
     m_contentLayout = new QVBoxLayout();
     mainLayout->addLayout(m_contentLayout);
 
+    // 添加复选框
+    m_defaultCheckBox = new QCheckBox("设为默认启动项", this);
+    mainLayout->addWidget(m_defaultCheckBox);
+
     QHBoxLayout *btnLayout = new QHBoxLayout();
     QPushButton *okBtn = new QPushButton("确定", this);
     QPushButton *cancelBtn = new QPushButton("取消", this);
@@ -50,45 +58,55 @@ QueryMainDialog::QueryMainDialog(QWidget *parent)
     btnLayout->addWidget(cancelBtn);
     mainLayout->addLayout(btnLayout);
 
-    connect(okBtn, &QPushButton::clicked, this, &QDialog::accept);
+    // 修改确定按钮的连接
+    connect(okBtn, &QPushButton::clicked, this, &QueryMainDialog::onOkClicked);
     connect(cancelBtn, &QPushButton::clicked, this, &QDialog::reject);
 
     m_btnGroup->setExclusive(true);
 }
 
-/**
- * @brief Adds a main widget option to the dialog.
- * @param name The name of the widget to be displayed.
- */
-void QueryMainDialog::addMainWidget(const QString &name) {
-    if (name.isEmpty())
+void QueryMainDialog::addMainWidget(WPlugin* plugin) {
+    if (!plugin)
         return;
 
-    QRadioButton *radioBtn = new QRadioButton(name, this);
+    // 使用插件的 Path 元数据作为显示文本
+    QString displayName = plugin->path();
+    QRadioButton *radioBtn = new QRadioButton(displayName, this);
     m_contentLayout->addWidget(radioBtn);
     m_btnGroup->addButton(radioBtn, m_btnId);
-    radioBtn->setProperty("widgetName", name);
+    radioBtn->setProperty("pluginPtr", QVariant::fromValue<quintptr>(
+                                           reinterpret_cast<quintptr>(plugin)));
     m_btnId++;
 
     adjustSize();
 }
 
-/**
- * @brief Returns whether a widget has been selected.
- * @return True if a radio button is checked, false otherwise.
- */
-bool QueryMainDialog::hasSelectedWidget() const {
+bool QueryMainDialog::hasSelectedPlugin() const {
     return m_btnGroup->checkedId() != -1;
 }
 
-/**
- * @brief Returns the name of the selected widget.
- * @return The widget name, or an empty string if none selected.
- */
-QString QueryMainDialog::selectedWidgetName() const {
+WPlugin* QueryMainDialog::selectedPlugin() const {
     QAbstractButton *checkedBtn = m_btnGroup->checkedButton();
     if (!checkedBtn) {
-        return "";
+        return nullptr;
     }
-    return checkedBtn->property("widgetName").toString();
+    quintptr ptr = checkedBtn->property("pluginPtr").value<quintptr>();
+    return reinterpret_cast<WPlugin*>(ptr);
+}
+
+bool QueryMainDialog::isSetDefault() const {
+    return m_defaultCheckBox->isChecked();
+}
+
+void QueryMainDialog::onOkClicked() {
+    WPlugin *plugin = selectedPlugin();
+    if (m_defaultCheckBox->isChecked() && plugin) {
+        auto configManager = WE::inst()->getWEClass()->configManager();
+        if (configManager) {
+            configManager->set(Config::DefaultMain,
+                               plugin->localUuid().toString());
+            configManager->save(WPath().getModuleFolder() + Config::ConfigPath);
+        }
+    }
+    accept();
 }

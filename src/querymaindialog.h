@@ -2,7 +2,7 @@
  * @file querymaindialog.h
  * @brief Header file for the dialog that queries and selects the main widget.
  * @author howdy213
- * @date 2026-05-04
+ * @date 2026-08-20
  * @version 2.0.0
  *
  * @copyright Copyright 2025-2026 howdy213
@@ -22,12 +22,14 @@
 #ifndef QUERYMAINDIALOG_H
 #define QUERYMAINDIALOG_H
 #include <QButtonGroup>
+#include <QCheckBox>
 #include <QDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
 #include <QRadioButton>
 #include <QVBoxLayout>
+#include <WECore/plugin/wplugin.h>
 
 /**
  * @class QueryMainDialog
@@ -37,14 +39,18 @@ class QueryMainDialog : public QDialog {
     Q_OBJECT
 public:
     explicit QueryMainDialog(QWidget *parent = nullptr);
-    void addMainWidget(const QString &name);
-    bool hasSelectedWidget() const;
-    QString selectedWidgetName() const;
+    void addMainWidget(we::WPlugin *plugin);
+    bool hasSelectedPlugin() const;
+    we::WPlugin *selectedPlugin() const;
+    bool isSetDefault() const;
 
+private slots:
+    void onOkClicked();
 private:
     QButtonGroup *m_btnGroup;      ///< Group of radio buttons for widget selection.
     QVBoxLayout *m_contentLayout;  ///< Layout that holds the radio buttons.
     int m_btnId;                   ///< Next ID to assign to a radio button.
+    QCheckBox *m_defaultCheckBox;
 };
 
 #endif // QUERYMAINDIALOG_H

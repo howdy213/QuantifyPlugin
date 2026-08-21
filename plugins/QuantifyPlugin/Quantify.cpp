@@ -34,12 +34,14 @@ using namespace Quantify::Consts;
 /// \param relativePath
 /// \return
 ///
-QString Quantify::resolvePath(WMetaDocument* doc, const QString& relativePath) {
-    if (!doc) return relativePath;
-    QString configDir = doc->get(DirRoot).toString();
-    if (configDir.isEmpty()) return relativePath;
+QString Quantify::resolvePath(WMetaDocument *doc, const QString &relativePath) {
+    if (!doc)
+        return relativePath;
+    QDir configDir = getConfigDir(doc);
+    if (configDir.isEmpty())
+        return relativePath;
     QDir baseDir(configDir);
-    return baseDir.filePath(relativePath);
+    return QDir::cleanPath(baseDir.filePath(relativePath));
 }
 ///
 /// \brief Quantify::resolvePathWithKey
@@ -47,12 +49,19 @@ QString Quantify::resolvePath(WMetaDocument* doc, const QString& relativePath) {
 /// \param key
 /// \return
 ///
-QString Quantify::resolvePathWithKey(WMetaDocument *doc, const QString &key)
-{
-    return resolvePath(doc,doc->get(key).toString());
+QDir Quantify::resolvePathWithKey(WMetaDocument *doc, const QString &key) {
+    return resolvePath(doc, doc->get(key).toString());
 }
 
-QString Quantify::getConfigDir(WMetaDocument *doc)
-{
+QDir Quantify::getConfigDir(WMetaDocument *doc) {
     return doc->get(DirRoot).toString();
+}
+
+bool Quantify::setConfigDir(we::WMetaDocument *doc, QString path) {
+    return doc->set(DirRoot, path);
+}
+
+QDir Quantify::getTermDir(we::WMetaDocument *doc)
+{
+    return resolvePath(doc, doc->get(DirPath).toString());
 }

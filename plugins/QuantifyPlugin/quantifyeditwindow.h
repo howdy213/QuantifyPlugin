@@ -75,7 +75,7 @@ private:
     void replaceTextEditContent(const QString &text);
     QString getCurrentFileExtension() const;
     QString getCurrentFileFilter() const;
-    QString getCurrentDirectoryPath() const;
+    QDir getCurrentDirectoryPath() const;
     QString readFileWithDecryption(const QString &filePath, bool isRecord) const;
     bool writeFileWithEncryption(const QString &filePath, const QString &content,
                                  bool isRecord) const;

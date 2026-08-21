@@ -34,7 +34,7 @@ class QuantifyPlugin : public QObject, public WPluginInterface
 {
 public:
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID WPluginInterface_iid FILE "QuantifyPlugin.json")
+    Q_PLUGIN_METADATA(IID WPluginInterface_iid FILE "metadata.json")
     Q_INTERFACES(WPluginInterface)
 
 public:

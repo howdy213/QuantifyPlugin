@@ -26,6 +26,8 @@
 #define QUANTIFY_H
 #include "WECore/metadata/WMetaDocument.h"
 
+#include <QDir>
+
 class ClassRecord;
 class Encryptor;
 class Logger;
@@ -39,15 +41,15 @@ class QuantifyDisplayViewDialog;
 
 namespace Quantify {
 namespace Consts {
-const QString DirRecord = "record";
-const QString DirRule = "rule";
-const QString DirGroup = "group";
-const QString DirAddon = "addon";
-const QString DirTemplate = "template";
-const QString DirPath = "path";
-const QString DirRoot = "_configDir";
-const QString VarEngine = "engine";
-const QString VarEncryption = "encryption";
+const QString DirRecord = "record";         // Quantify/record/
+const QString DirRule = "rule";             // Quantify/rule/
+const QString DirGroup = "group";           // Quantify/group/
+const QString DirAddon = "addon";           // Quantify/addon/
+const QString DirTemplate = "template";     // Quantify/template/
+const QString DirPath = "path";             // Quantify/<term>/
+const QString DirRoot = "_configDir";       // Quantify/
+const QString VarEngine = "engine";         // js/native
+const QString VarEncryption = "encryption"; // bool
 const QString EngineNative = "native";
 const QString EngineJS = "js";
 }; // namespace Consts
@@ -70,8 +72,10 @@ public:
 };
 
 QString resolvePath(we::WMetaDocument *doc, const QString &relativePath);
-QString getConfigDir(we::WMetaDocument *doc);
-QString resolvePathWithKey(we::WMetaDocument *doc, const QString &key);
+QDir getConfigDir(we::WMetaDocument *doc);
+bool setConfigDir(we::WMetaDocument *doc, QString path);
+QDir getTermDir(we::WMetaDocument *doc);
+QDir resolvePathWithKey(we::WMetaDocument *doc, const QString &key);
 
 } // namespace Quantify
 
