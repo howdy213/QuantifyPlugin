@@ -79,6 +79,6 @@ WidgetExplorer: [Apache-2.0 license](licenses/LICENSE-WidgetExplorer)
 
 QXlsx: [MIT License](licenses/LICENSE-QXlsx)
 
-OpenSSL: [Apache-2.0 license](LICENSE-OpenSSL)
+OpenSSL: [Apache-2.0 license](licenses/LICENSE-OpenSSL)
 
 Qt: [LGPLv3 许可证](licenses/LICENSE.LESSER-Qt)

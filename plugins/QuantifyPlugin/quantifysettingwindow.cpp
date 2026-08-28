@@ -227,6 +227,7 @@ void QuantifySettingWindow::on_btnChangeConfig_clicked() {
         QPushButton *cancelButton =
             msgBox.addButton(tr("取消"), QMessageBox::RejectRole);
         msgBox.exec();
+        Q_UNUSED(continueButton);
 
         if (msgBox.clickedButton() == cancelButton)
             return;
@@ -341,6 +342,7 @@ bool QuantifySettingWindow::createConfigFile(const QString &configPath,
                                              const QDir &baseDir,
                                              const QString &termDirName,
                                              const QString &engineType) {
+    Q_UNUSED(baseDir);
     QDir configDir = QFileInfo(configPath).absoluteDir();
     if (!configDir.exists() && !configDir.mkpath(".")) {
         QMessageBox::critical(this, tr("错误"), tr("无法创建配置目录。"));
@@ -811,6 +813,13 @@ bool QuantifySettingWindow::performRestore(const QString &backupDir) {
     for (const QFileInfo &entry : std::as_const(entries)) {
         if (progress.wasCanceled())
             return false;
+
+        if (entry.fileName() == "logs") {
+            Logger::instance().info("恢复: 跳过 logs 目录");
+            progress.setValue(++current);
+            continue;
+        }
+
         progress.setLabelText(tr("正在恢复: %1").arg(entry.fileName()));
         progress.setValue(current++);
         qApp->processEvents();
